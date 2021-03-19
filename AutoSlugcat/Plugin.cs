@@ -12,7 +12,7 @@ namespace AutoSlugcat
             File.WriteAllText(logPath, "");
             Log($"AutoSlugcat started! {DateTime.Now}\n");
 
-            Manager = new PathManager(pathPath, false);
+            Manager = new PathManager(pathPath, debugRooms: true);
             PlayerHooks.Apply();
         }
 

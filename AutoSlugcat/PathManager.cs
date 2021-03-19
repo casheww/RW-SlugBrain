@@ -41,13 +41,11 @@ namespace AutoSlugcat
         public void SetupAI(Player player, World world)
         {
             this.player = player;
-            AI = new SlugcatAI(player.abstractCreature, world);
-            pather = new SlugcatPather(AI, world, player.abstractCreature);
+            //AI = new SlugcatAI(player.abstractCreature, world);
+            //pather = new SlugcatPather(AI, world, player.abstractCreature);
         }
 
         Player player;
-        SlugcatAI AI;
-        SlugcatPather pather;
 
         public string Advance()
         {
@@ -64,44 +62,61 @@ namespace AutoSlugcat
 
         public void DeterminePathThroughRoom(Room room)
         {
+            IntVector2 start = room.GetTilePosition(player.mainBodyChunk.pos);
+            bool endFound = GetRoomExit(room, out IntVector2 end);
+
+            if (!endFound)
+            {
+                Plugin.Log($"\nERROR : {room.abstractRoom.name} has no connection to {NextRoomName}\n");
+                return;
+            }
+            if (debug) DebugRoomAccess(room, start, end);
+
+            Dictionary<IntVector2, MovementType> path = new Dictionary<IntVector2, MovementType>();
+
+            IntVector2[] nodes = A_Star(room, start, end);
+
+            if (nodes == null) return;
+
+            Plugin.Log($"final path length: {path.Count}");
+            PathThroughRoomObtained = true;
+        }
+
+        bool GetRoomExit(Room room, out IntVector2 end)
+        {
             Plugin.Log($"target room : {NextRoomName}", true);
             foreach (ShortcutData shortcut in room.shortcuts)
             {
-                IntVector2 exit;
+                IntVector2 potentialExit;
                 if (shortcut.DestTile == null)
                 {
-                    exit = shortcut.StartTile;
+                    potentialExit = shortcut.StartTile;
                 }
-                else exit = shortcut.DestTile;
+                else potentialExit = shortcut.DestTile;
 
-                AbstractRoom potentialRoom = room.WhichRoomDoesThisExitLeadTo(exit);
+                AbstractRoom potentialRoom = room.WhichRoomDoesThisExitLeadTo(potentialExit);
                 if (potentialRoom is null) continue;
-
-                Plugin.Log(potentialRoom.name);
 
                 if (potentialRoom.name == NextRoomName)
                 {
-                    Plugin.Log($"shortcut to target room identified : {exit}", true);
-                    pather.Reset(room);
-
-                    IntVector2 start = room.GetTilePosition(player.mainBodyChunk.pos);
-                    IntVector2 end = shortcut.StartTile;
-
-                    if (debug) DebugRoomAccess(room, start, end);
-
-                    IntVector2[] path = A_Star(room, start, end);
-
-                    if (path == null) return;
-
-                    Plugin.Log($"final path length: {path.Length}");
-                    PathThroughRoomObtained = true;
+                    Plugin.Log($"shortcut to target room identified : {potentialExit}", true);
+                    end = potentialExit;
+                    return true;
                 }
             }
+
+            end = new IntVector2(0, 0);
+            return false;
         }
 
         IntVector2[] A_Star(Room room, IntVector2 start, IntVector2 end)
         {
-            if (!room.aimap.TileAccessibleToCreature(end, slugTemplate)) return null;
+            return A_Star(room, start, end, Vector2.zero);
+        }
+
+        IntVector2[] A_Star(Room room, IntVector2 start, IntVector2 end, Vector2 overallRoomDir)
+        {
+            if (!room.aimap.TileAccessibleToCreature(start, slugTemplate)) return null;
             
             Vector2 dir = Custom.DirVec(start.ToVector2(), end.ToVector2());
             Plugin.Log($"mapping path from {start} to {end} (net direction {dir})");
@@ -112,57 +127,77 @@ namespace AutoSlugcat
             int i = 0;
             do
             {
-                IntVector2 potential = GetNeighbourInDirection(path[i], dir);
-
-                bool accessable = room.aimap.TileAccessibleToCreature(potential, slugTemplate);
-                if (accessable)
+                if (overallRoomDir != Vector2.zero)
                 {
-                    Plugin.Log($"best option was accessable : {potential}");
-                    dir = Custom.DirVec(potential.ToVector2(), end.ToVector2());
-                    path.Add(potential);
-                    i++;
+                    // a previous call of this method hit an obstacle. overallRoomDir is the entrance-exit dir
+                    if (TryTurnToExit(room, path[i], end, dir, out IntVector2[] pathSection))
+                    {
+                        path.AddRange(pathSection);
+                        Plugin.Log($"after a collision, a turn towards the exit could be made (len:{pathSection.Length})");
+                    }
                 }
                 else
                 {
-                    Plugin.Log("best option was not accessable");
-                    IntVector2[] shortestPath = null;
-                    foreach (IntVector2 neighbour in GetAllNeighbours(path[i], dir))
+                    IntVector2 potential = GetNeighbourInDirection(path[i], dir);
+                    bool accessible = room.aimap.TileAccessibleToCreature(potential, slugTemplate);
+
+                    if (accessible)
                     {
-                        if (room.aimap.TileAccessibleToCreature(neighbour, slugTemplate) &&
-                                (path.Count > 1 && neighbour != path[i-1]))
+                        Plugin.Log($"best option was accessable : {potential}");
+                        dir = Custom.DirVec(potential.ToVector2(), end.ToVector2());
+                        path.Add(potential);
+                        i++;
+                    }
+                    else
+                    {
+                        Plugin.Log("best option was not accessable");
+                        IntVector2[] shortestPath = null;
+
+                        foreach (KeyValuePair<IntVector2, IntVector2> neighbour in GetAllNeighbours(path[i]))
                         {
-                            // hm yes, recursion is a good idea...
-                            IntVector2[] p = A_Star(room, neighbour, end);
-                            Plugin.Log($"path segment with length {p.Length} was found");
-                            if (shortestPath == null)
+                            if (room.aimap.TileAccessibleToCreature(neighbour.Value, slugTemplate) &&
+                                path.Count > 1 && neighbour.Value != path[i - 1])         // disallow backtracking
                             {
-                                Plugin.Log(shortestPath.Length);
-                                Plugin.Log(p.Length);
-                                if (p.Length > shortestPath.Length)
+                                IntVector2 neighborsCoherentNeighbour = neighbour.Value + neighbour.Key;
+                                IntVector2[] p = A_Star(room, neighbour.Value, neighborsCoherentNeighbour);
+                                Plugin.Log($"path segment with length {p.Length} was found");
+
+                                if (shortestPath != null || shortestPath.Length > p.Length)
                                 {
                                     shortestPath = p;
                                 }
                             }
                         }
-                    }
-                    // check accessable ground tiles within jump range
 
-                    if (shortestPath == null)
-                    {
-                        Plugin.Log("issue with aimap");
-                        return null;
-                    }
-                    else
-                    {
-                        path.AddRange(shortestPath);
-                        Plugin.Log($"path segment with length {shortestPath.Length} was added to the path");
+                        if (shortestPath == null)
+                        {
+                            Plugin.Log("issue with aimap? path through room for given exists not found");
+                            return null;
+                        }
+                        else
+                        {
+                            path.AddRange(shortestPath);
+                            Plugin.Log($"path segment with length {shortestPath.Length} was added to the path");
+                        }
                     }
                 }
 
-                success = path[path.Count - 1] == end;
+                success = Math.Abs(Custom.ManhattanDistance(path[path.Count - 1], end)) < 3;
             } while (!success);
 
             return path.ToArray();
+        }
+
+        bool TryTurnToExit(Room room, IntVector2 current, IntVector2 end, Vector2 dir, out IntVector2[] path)
+        {
+            IntVector2 potential = GetNeighbourInDirection(current, dir);
+            if (room.aimap.TileAccessibleToCreature(potential, slugTemplate))
+            {
+                path = A_Star(room, current, end);
+                return true;
+            }
+            path = null;
+            return false;
         }
 
         public static IntVector2 GetNeighbourInDirection(IntVector2 start, Vector2 dir)
@@ -170,32 +205,18 @@ namespace AutoSlugcat
             return start + new IntVector2(Mathf.CeilToInt(dir.x), Mathf.CeilToInt(dir.y));
         }
         
-        public static IntVector2[] GetAllNeighbours(IntVector2 start, Vector2 dir)
+        public static Dictionary<IntVector2, IntVector2> GetAllNeighbours(IntVector2 start)
         {
-            IntVector2[] neighbours = new IntVector2[8];
+            Dictionary<IntVector2, IntVector2> neighbours = new Dictionary<IntVector2, IntVector2>();
             for (int i = 0; i < 8; i++)
             {
-                neighbours[i] = start + Custom.eightDirections[i];
+                neighbours.Add(Custom.eightDirections[i], start + Custom.eightDirections[i]);
             }
             return neighbours;
         }
 
         public void Move()
         {
-            /*
-            if (movementConnections.Count < 1) return;
-
-            WorldCoordinate exit;
-            if (movementConnections[0].destinationCoord == null)
-            {
-                exit = movementConnections[0].startCoord;
-            }
-            else exit = movementConnections[0].destinationCoord;
-            Plugin.Log($"e {exit}");
-
-            Plugin.Log($"start : {movementConnections[0].startCoord}");
-            Plugin.Log($"dest  : {movementConnections[0].destinationCoord}\n");
-            */
         }
 
         static void DebugRoomAccess(Room room, IntVector2 start, IntVector2 end)
@@ -242,6 +263,13 @@ namespace AutoSlugcat
         public bool FinishedQueue { get => NextRoomName == "INVALID"; }
 
         static CreatureTemplate slugTemplate = StaticWorld.GetCreatureTemplate(CreatureTemplate.Type.PinkLizard);
+
+
+        public enum MovementType
+        {
+            Walk,
+            Jump
+        }
 
     }
 }
