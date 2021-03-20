@@ -22,9 +22,7 @@ namespace AutoSlugcat
         {
             orig(self, creature, world);
 
-            self.abstractCreature.abstractAI = new AbstractPlayerAI(world, creature);
-            Plugin.Manager.SetupAI(self, world);
-
+            Plugin.Manager.SetPlayer(self, world);
             Plugin.Manager.DeterminePathThroughRoom(self.room);
         }
 

@@ -38,11 +38,9 @@ namespace AutoSlugcat
             Plugin.Log("");
         }
 
-        public void SetupAI(Player player, World world)
+        public void SetPlayer(Player player, World world)
         {
             this.player = player;
-            //AI = new SlugcatAI(player.abstractCreature, world);
-            //pather = new SlugcatPather(AI, world, player.abstractCreature);
         }
 
         Player player;
@@ -63,7 +61,7 @@ namespace AutoSlugcat
         public void DeterminePathThroughRoom(Room room)
         {
             IntVector2 start = room.GetTilePosition(player.mainBodyChunk.pos);
-            bool endFound = GetRoomExit(room, out IntVector2 end);
+            bool endFound = TryGetRoomExit(room, out IntVector2 end);
 
             if (!endFound)
             {
@@ -82,7 +80,7 @@ namespace AutoSlugcat
             PathThroughRoomObtained = true;
         }
 
-        bool GetRoomExit(Room room, out IntVector2 end)
+        bool TryGetRoomExit(Room room, out IntVector2 end)
         {
             Plugin.Log($"target room : {NextRoomName}", true);
             foreach (ShortcutData shortcut in room.shortcuts)
