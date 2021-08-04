@@ -6,27 +6,21 @@ namespace SlugBrain
 {
     class DebugNode : CosmeticSprite
     {
-        public DebugNode(Room room, IntVector2 tileCoords)
+        public DebugNode(Color baseColor)
         {
-            startRoomName = room.abstractRoom.name;
-            this.tileCoords = tileCoords;
+            color = baseColor;
+            color.a = 0.5f;
         }
 
-        readonly string startRoomName;
-        readonly IntVector2 tileCoords;
-
-        public override void Update(bool eu)
+        public void UpdatePosition(Room room, IntVector2 pos)
         {
-            try
+            if (this.room != room)
             {
-                if (room.abstractRoom.name != startRoomName)
-                {
-                    Destroy();
-                }
+                RemoveFromRoom();
+                room.AddObject(this);
             }
-            catch (NullReferenceException) { }
 
-            base.Update(eu);
+            tileCoords = pos;
         }
 
         public override void InitiateSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam)
@@ -56,9 +50,12 @@ namespace SlugBrain
 
         public override void ApplyPalette(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, RoomPalette palette)
         {
-            Color color = Color.white;
-            color.a = 0.5f;
             sLeaser.sprites[0].color = color;
         }
+
+
+        IntVector2 tileCoords;
+        Color color;
+
     }
 }

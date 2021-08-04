@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using BepInEx;
+using UnityEngine;
 
 namespace SlugBrain
 {
@@ -23,7 +24,12 @@ namespace SlugBrain
             Hooks.Disable();
         }
 
-        public static void Log(object message, bool bepLog = false, bool error = false)
+        void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.F1)) debugAI = !debugAI;
+        }
+
+        public static void Log(object message, bool bepLog = true, bool error = false)
         {
             using (StreamWriter sw = File.AppendText(logPath))
             {
@@ -42,5 +48,8 @@ namespace SlugBrain
 
         const string logPath = "./Mods/AutoSlugcatStuff/log.txt";
         const string pathPath = "./Mods/AutoSlugcatStuff/pathing.txt";
+
+        public static bool debugAI = true;
+
     }
 }

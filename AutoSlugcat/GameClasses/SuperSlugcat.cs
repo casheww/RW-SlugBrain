@@ -26,13 +26,15 @@ namespace SlugBrain.GameClasses
                 (AI.pathFinder as StandardPather).FollowPath(room.GetWorldCoordinate(mainBodyChunk.pos), true);
             if (movement != null)
             {
-                BrainPlugin.Log(movement, true);
                 Move(movement);
             }
         }
 
         void Move(MovementConnection movement)
         {
+            if (debugNode == null) debugNode = new DebugNode(Color.red);
+            debugNode.UpdatePosition(room, movement.DestTile);
+
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
 
             InputPackage input = new InputPackage(
@@ -47,5 +49,6 @@ namespace SlugBrain.GameClasses
 
 
         public SlugcatAI AI;
+        DebugNode debugNode = null;
     }
 }

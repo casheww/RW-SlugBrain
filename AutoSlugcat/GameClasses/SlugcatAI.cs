@@ -12,15 +12,17 @@ namespace SlugBrain.GameClasses
             AddModule(new ThreatTracker(this, 10));
             AddModule(new PreyTracker(this, 10, 1f, 3f, 15f, 0.95f));
             AddModule(new RainTracker(this));
-            AddModule(new ShelterFinder(this, creature));           // DenFinder
             AddModule(new StuckTracker(this, true, true));
             stuckTracker.AddSubModule(new StuckTracker.GetUnstuckPosCalculator(stuckTracker));
 
+            shelterFinder = new ShelterFinder(this, creature);
+            AddModule(shelterFinder);
+
             AddModule(new UtilityComparer(this));
-            utilityComparer.AddComparedModule(threatTracker, null, 0.9f, 1.1f);
-            utilityComparer.AddComparedModule(preyTracker, null, 0.5f, 1.1f);
-            utilityComparer.AddComparedModule(rainTracker, null, 0.9f, 1.1f);
-            utilityComparer.AddComparedModule(stuckTracker, null, 1f, 1.1f);
+            utilityComparer.AddComparedModule(threatTracker, null, 0f, 1.1f);
+            utilityComparer.AddComparedModule(preyTracker, null, 0f, 1.1f);
+            utilityComparer.AddComparedModule(rainTracker, null, 1f, 1.1f);
+            utilityComparer.AddComparedModule(stuckTracker, null, 0f, 1.1f);
 
             behavior = Behavior.FollowPath;
 
@@ -34,10 +36,14 @@ namespace SlugBrain.GameClasses
             AIModule urge = utilityComparer.HighestUtilityModule();
             float urgeStrength = utilityComparer.HighestUtility();
 
+            Behavior lastBehavior = behavior;
+
             if (urge is ThreatTracker) behavior = Behavior.Flee;
             else if (urge is RainTracker) behavior = Behavior.EscapeRain;
             else if (urge is PreyTracker) behavior = Behavior.Hunt;
             else if (urge is StuckTracker) behavior = Behavior.GetUnstuck;
+
+            if (lastBehavior != behavior) BrainPlugin.Log($"slugcat behavior changed to {behavior}");
 
             switch (behavior)
             {
@@ -54,9 +60,8 @@ namespace SlugBrain.GameClasses
                     break;
 
                 case Behavior.EscapeRain:
-                    WorldCoordinate? denPos = denFinder.GetDenPosition();
-                    if (denPos != null)
-                        creature.abstractAI.SetDestination(denPos.Value);
+                    WorldCoordinate denPos = shelterFinder.GetShelterTarget();
+                    creature.abstractAI.SetDestination(denPos);
                     break;
 
                 case Behavior.GetUnstuck:
@@ -77,6 +82,7 @@ namespace SlugBrain.GameClasses
 
 
         SuperSlugcat slugcat;
+        ShelterFinder shelterFinder;
 
         public Behavior behavior;
 
