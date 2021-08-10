@@ -9,7 +9,6 @@ namespace SlugBrain
         public DebugNode(Color baseColor)
         {
             color = baseColor;
-            color.a = 0.5f;
         }
 
         public void UpdatePosition(Room room, IntVector2 pos)
@@ -45,7 +44,7 @@ namespace SlugBrain
         {
             base.AddToContainer(sLeaser, rCam, null);
             sLeaser.sprites[0].RemoveFromContainer();
-            rCam.ReturnFContainer("Foreground").AddChild(sLeaser.sprites[0]);
+            rCam.ReturnFContainer("HUD").AddChild(sLeaser.sprites[0]);
         }
 
         public override void ApplyPalette(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, RoomPalette palette)

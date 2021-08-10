@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DebugNode.cs" />
+    <Compile Include="GameClasses\HungerTracker.cs" />
     <Compile Include="GameClasses\ShelterFinder.cs" />
     <Compile Include="InputSpoofer.cs" />
     <Compile Include="GameClasses\SlugcatAI.cs" />
