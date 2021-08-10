@@ -7,8 +7,8 @@
     <ProjectGuid>{D85C02E7-9FCD-4716-AB00-3BB766B66ABC}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AutoSlugcat</RootNamespace>
-    <AssemblyName>AutoSlugcat</AssemblyName>
+    <RootNamespace>SlugBrain</RootNamespace>
+    <AssemblyName>SlugBrain</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -51,13 +51,17 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AbstractPlayerAI.cs" />
-    <Compile Include="PathManager.cs" />
-    <Compile Include="PlayerHooks.cs" />
-    <Compile Include="Plugin.cs" />
+    <Compile Include="DebugNode.cs" />
+    <Compile Include="GameClasses\HungerTracker.cs" />
+    <Compile Include="GameClasses\ShelterFinder.cs" />
+    <Compile Include="InputSpoofer.cs" />
+    <Compile Include="GameClasses\SlugcatAI.cs" />
+    <Compile Include="GameClasses\SlugcatPathFinder.cs" />
+    <Compile Include="GameClasses\SuperSlugcat.cs" />
+    <Compile Include="Hooks.cs" />
+    <Compile Include="MovementPackage.cs" />
+    <Compile Include="BrainPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SlugcatAI.cs" />
-    <Compile Include="SlugcatPather.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
