@@ -11,7 +11,9 @@ namespace SlugBrain.GameClasses
             slugcat.AI = this;
 
             // vanilla AI modules
-            AddModule(new StandardPather(this, world, creature));
+            standardPathFinder = new StandardPather(this, world, creature);
+            swimmingPathFinder = new FishPather(this, world, creature);
+            AddModule(standardPathFinder);
             AddModule(new StuckTracker(this, false, true));
             stuckTracker.AddSubModule(new StuckTracker.GetUnstuckPosCalculator(stuckTracker));
             AddModule(new Tracker(this, 10, 20, -1, 0.35f, 5, 5, 10));
@@ -33,6 +35,8 @@ namespace SlugBrain.GameClasses
             utilityComparer.AddComparedModule(rainTracker, null, 1f, 1.1f);
             utilityComparer.AddComparedModule(stuckTracker, null, 1f, 1.1f);
 
+            submergedLastUpdate = false;
+
             behavior = Behavior.FollowPath;
 
             BrainPlugin.Log("SlugcatAI ctor done");
@@ -41,6 +45,29 @@ namespace SlugBrain.GameClasses
         public override void Update()
         {
             base.Update();
+
+            if (creature.Room.realizedRoom == null) return;
+
+
+            bool submerged = creature.Room.realizedRoom.PointSubmerged(creature.realizedCreature.bodyChunks[1].pos);
+            if (submerged != submergedLastUpdate)
+            {
+                if (submerged)
+                {
+                    modules.Remove(standardPathFinder);
+                    AddModule(swimmingPathFinder);
+                }
+                else
+                {
+                    modules.Remove(swimmingPathFinder);
+                    AddModule(standardPathFinder);
+                }
+
+                pathFinder.Reset(creature.Room.realizedRoom);
+                BrainPlugin.Log($"path finder set to {pathFinder}");
+            }
+            submergedLastUpdate = submerged;
+
 
             AIModule urge = utilityComparer.HighestUtilityModule();
             float urgeStrength = utilityComparer.HighestUtility();
@@ -51,13 +78,6 @@ namespace SlugBrain.GameClasses
             else if (urge is RainTracker) behavior = Behavior.EscapeRain;
             else if (urge is PreyTracker) behavior = Behavior.Hunt;
             else if (urge is StuckTracker) behavior = Behavior.GetUnstuck;
-
-            if (lastBehavior != behavior || counter == 120)
-            {
-                BrainPlugin.Log($"slugcat behavior : {urge} {behavior} {urgeStrength}");
-                counter = 0;
-            }
-            else counter++;
 
             WorldCoordinate destination = creature.pos;
 
@@ -85,8 +105,19 @@ namespace SlugBrain.GameClasses
                     break;
             }
 
-            creature.abstractAI.SetDestinationNoPathing(destination, false);
+            destination = shelterFinder.GetShelterTarget();
+
+            creature.abstractAI.SetDestination(destination);
             Destination = destination;
+
+            if (lastBehavior != behavior || counter == 120)
+            {
+                BrainPlugin.Log($"slugcat behavior : {urge} {behavior} {urgeStrength}\n" +
+                    $"destination : {destination}");
+                counter = 0;
+            }
+            else counter++;
+            
 
             DrawDebugNodes();
         }
@@ -165,6 +196,10 @@ namespace SlugBrain.GameClasses
         SuperSlugcat slugcat;
         ShelterFinder shelterFinder;
         HungerTracker hungerTracker;
+        PathFinder standardPathFinder;
+        PathFinder swimmingPathFinder;
+
+        bool submergedLastUpdate;
 
         public Behavior behavior;
 
