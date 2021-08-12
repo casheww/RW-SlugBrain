@@ -10,6 +10,7 @@ namespace SlugBrain
             On.AbstractCreature.Realize += AbstractCreature_Realize;
             On.AbstractCreature.InitiateAI += AbstractCreature_InitiateAI;
             On.Player.checkInput += Player_checkInput;
+            On.Player.ObjectEaten += Player_ObjectEaten;
         }
         public static void Disable()
         {
@@ -17,6 +18,7 @@ namespace SlugBrain
             On.AbstractCreature.Realize -= AbstractCreature_Realize;
             On.AbstractCreature.InitiateAI -= AbstractCreature_InitiateAI;
             On.Player.checkInput -= Player_checkInput;
+            On.Player.ObjectEaten -= Player_ObjectEaten;
         }
 
         private static void AbstractCreature_ctor(On.AbstractCreature.orig_ctor orig, AbstractCreature self,
@@ -24,6 +26,7 @@ namespace SlugBrain
         {
             orig(self, world, creatureTemplate, realizedCreature, pos, ID);
 
+            // give slugcat a new abstract AI, regardless of its template's AI flag
             if (creatureTemplate.type == CreatureTemplate.Type.Slugcat)
             {
                 self.abstractAI = new AbstractCreatureAI(world, self);
@@ -34,6 +37,7 @@ namespace SlugBrain
         {
             if (self.creatureTemplate.TopAncestor().type == CreatureTemplate.Type.Slugcat)
             {
+                // create a SuperSlugcat instead of a Player object
                 self.realizedCreature = new SuperSlugcat(self, self.world);
                 self.InitiateAI();
 
@@ -50,6 +54,7 @@ namespace SlugBrain
         {
             orig(self);
 
+            // init the custom slugcat AI
             if (self.creatureTemplate.TopAncestor().type == CreatureTemplate.Type.Slugcat &&
                 self.realizedCreature is SuperSlugcat)
             {
@@ -62,6 +67,17 @@ namespace SlugBrain
             orig(self);
 
             BrainPlugin.InputSpoofer.ModifyInputs(ref self.input[0]);
+        }
+
+        private static void Player_ObjectEaten(On.Player.orig_ObjectEaten orig, Player self, IPlayerEdible edible)
+        {
+            orig(self, edible);
+
+            if (self is SuperSlugcat super)
+            {
+                BrainPlugin.Log($"consumed {edible} - yummy yummy");
+                super.AI.treatTracker.edibles.Remove((edible as PhysicalObject).abstractPhysicalObject);
+            }
         }
 
     }

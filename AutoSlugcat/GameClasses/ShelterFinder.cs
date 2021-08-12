@@ -28,14 +28,12 @@ namespace SlugBrain.GameClasses
         {
             if (AI.creature.Room.shelter)
             {
+                // the common safe point of vanilla shelters...
+                // there may be some special cases yet to be accounted for
                 return new WorldCoordinate(AI.creature.Room.index, 25, 15, -1);
             }
+            // focus the exit node that takes us closest to the nearest shelter
             else return new WorldCoordinate(AI.creature.Room.index, -1, -1, exitToShelter);
-        }
-
-        public override float Utility()
-        {
-            return base.Utility();
         }
 
         public int GetExitToClosestShelter(out float shortestDistToClosestShelter)

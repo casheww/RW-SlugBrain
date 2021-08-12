@@ -52,14 +52,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DebugNode.cs" />
-    <Compile Include="GameClasses\HungerTracker.cs" />
+    <Compile Include="GameClasses\TreatTracker.cs" />
     <Compile Include="GameClasses\ShelterFinder.cs" />
     <Compile Include="InputSpoofer.cs" />
     <Compile Include="GameClasses\SlugcatAI.cs" />
     <Compile Include="GameClasses\SlugcatPathFinder.cs" />
     <Compile Include="GameClasses\SuperSlugcat.cs" />
     <Compile Include="Hooks.cs" />
-    <Compile Include="MovementPackage.cs" />
     <Compile Include="BrainPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

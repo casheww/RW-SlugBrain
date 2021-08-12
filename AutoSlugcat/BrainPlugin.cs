@@ -26,7 +26,8 @@ namespace SlugBrain
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.F1)) debugAI = !debugAI;
+            if (Input.GetKeyDown(KeyCode.PageDown)) debugAI = !debugAI;
+            if (Input.GetKeyDown(KeyCode.End)) debugTerrainAndSlopes = !debugTerrainAndSlopes;
         }
 
         public static void Log(object message, bool bepLog = true, bool error = false)
@@ -50,6 +51,7 @@ namespace SlugBrain
         const string pathPath = "./Mods/AutoSlugcatStuff/pathing.txt";
 
         public static bool debugAI = true;
+        public static bool debugTerrainAndSlopes = false;
 
     }
 }
