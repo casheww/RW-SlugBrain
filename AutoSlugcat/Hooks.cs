@@ -66,7 +66,7 @@ namespace SlugBrain
         {
             orig(self);
 
-            BrainPlugin.InputSpoofer.ModifyInputs(ref self.input[0]);
+            self.input[0] = BrainPlugin.InputSpoofer.ModifyInputs(self.input[0]);
         }
 
         private static void Player_ObjectEaten(On.Player.orig_ObjectEaten orig, Player self, IPlayerEdible edible)
@@ -76,7 +76,7 @@ namespace SlugBrain
             if (self is SuperSlugcat super)
             {
                 BrainPlugin.Log($"consumed {edible} - yummy yummy");
-                super.AI.treatTracker.edibles.Remove((edible as PhysicalObject).abstractPhysicalObject);
+                super.AI.treatTracker.RemoveFood((edible as PhysicalObject).abstractPhysicalObject);
             }
         }
 

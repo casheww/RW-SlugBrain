@@ -19,11 +19,10 @@ namespace SlugBrain.GameClasses
             AddModule(new Tracker(this, 10, 20, -1, 0.35f, 5, 5, 10));
             AddModule(new RelationshipTracker(this, tracker));
             AddModule(new ThreatTracker(this, 10));
-            AddModule(new PreyTracker(this, 10, 1f, 3f, 15f, 0.95f));
             AddModule(new RainTracker(this));
 
             // custom AI modules
-            treatTracker = new TreatTracker(this);
+            treatTracker = new TreatTracker(this, 8, 1f, 360f);
             AddModule(treatTracker);
             shelterFinder = new ShelterFinder(this);
             AddModule(shelterFinder);
@@ -75,7 +74,6 @@ namespace SlugBrain.GameClasses
             float urgeStrength = utilityComparer.HighestUtility();
 
             SetAIDebugLabel(urge);
-            Behavior lastBehavior = behavior;
 
             if (urge is ThreatTracker) behavior = Behavior.Flee;
             else if (urge is RainTracker) behavior = Behavior.EscapeRain;
@@ -94,10 +92,7 @@ namespace SlugBrain.GameClasses
                     break;
 
                 case Behavior.Hunt:
-                    destination = treatTracker.GetNearestEdibleLocation(out _);
-                    if (destination.room == -1)
-                        if (preyTracker.MostAttractivePrey != null)
-                            destination = preyTracker.MostAttractivePrey.BestGuessForPosition();
+                    destination = treatTracker.GetMostAttractiveFoodDestination(out _);
                     break;
 
                 case Behavior.EscapeRain:
@@ -112,22 +107,22 @@ namespace SlugBrain.GameClasses
 
             if (destination.room == -1) return;
 
-            if (Destination != destination || lastBehavior != behavior || counter == 120)
+            if (Destination != destination)
             {
                 BrainPlugin.Log($"slugcat behavior : {urge} {behavior} {urgeStrength}\n" +
                     $"destination : {destination}");
-                counter = 0;
             }
-            else counter++;
 
             SetDestination(destination);
         }
-        int counter = 0;
 
         void DrawDebugNodes()
         {
             Room room = creature.Room.realizedRoom;
             if (room == null) return;
+
+            treatTracker.DrawDebugNodes();
+
 
             if (shelterNode == null) shelterNode = new DebugNode(new Color(0.86f, 0.53f, 0.82f));
             shelterNode.UpdatePosition(room, shelterFinder.ExitTile);
@@ -136,17 +131,13 @@ namespace SlugBrain.GameClasses
             if (threatTracker.mostThreateningCreature != null)
                 threatNode.UpdatePosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
 
-            if (preyNode == null) preyNode = new DebugNode(new Color(1f, 0.4f, 0.05f));
-            if (preyTracker.MostAttractivePrey != null)
-                preyNode.UpdatePosition(room, preyTracker.MostAttractivePrey.BestGuessForPosition().Tile);
-
             if (overallDestinationNode == null) overallDestinationNode = new DebugNode(new Color(0.3f, 0.8f, 0.4f));
             if (Destination.room == room.abstractRoom.index)
             {
                 IntVector2 t = DestinationTile;
                 overallDestinationNode.UpdatePosition(room, t);
             }
-            else overallDestinationNode.UpdatePosition(room, new IntVector2(1, 1));
+            else overallDestinationNode.UpdatePosition(room, new IntVector2(1, room.TileHeight - 1));
 
         }
 
@@ -168,8 +159,9 @@ namespace SlugBrain.GameClasses
                 $"active path finder : {pathFinder}\n" +
                 $"dest : {Destination} {destHint}";
 
-            AIdebugLabel.x = creature.realizedCreature.mainBodyChunk.pos.x;
-            AIdebugLabel.y = creature.realizedCreature.mainBodyChunk.pos.y;
+            Vector2 pos = creature.realizedCreature.mainBodyChunk.pos + creature.Room.realizedRoom.game.cameras[0].pos;
+            AIdebugLabel.x = pos.x;
+            AIdebugLabel.y = pos.y;
 
         }
 
@@ -186,8 +178,6 @@ namespace SlugBrain.GameClasses
             {
                 case CreatureTemplate.Relationship.Type.Afraid:
                     return threatTracker;
-                case CreatureTemplate.Relationship.Type.Eats:
-                    return preyTracker;
                 default:
                     return null; 
             }
@@ -220,6 +210,27 @@ namespace SlugBrain.GameClasses
         }
 
 
+        public float EstimateTileDistance(WorldCoordinate from, WorldCoordinate to)
+        {
+            float dist;
+
+            if (from.room != to.room)
+            {
+                AbstractRoom abstractFrom = creature.world.GetAbstractRoom(from.room);
+                int exitToRoom = abstractFrom.ExitIndex(to.room);
+
+                if (exitToRoom > -1)   // check rooms are connected
+                {
+                    dist = Custom.WorldCoordFloatDist(from, abstractFrom.realizedRoom.LocalCoordinateOfNode(exitToRoom));
+                }
+                else dist = float.PositiveInfinity;
+            }
+            else dist = Custom.WorldCoordFloatDist(from, to);
+
+            return dist;
+        }
+
+
         public enum Behavior
         {
             FollowPath,
@@ -242,7 +253,6 @@ namespace SlugBrain.GameClasses
 
         DebugNode shelterNode;
         DebugNode threatNode;
-        DebugNode preyNode;
         DebugNode overallDestinationNode;
         FLabel AIdebugLabel;
 

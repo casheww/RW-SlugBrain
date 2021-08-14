@@ -1,13 +1,23 @@
-﻿using System.Collections.Generic;
+﻿using RWCustom;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SlugBrain.GameClasses
 {
-    class TreatTracker : AIModule
+    /// <summary>
+    /// AIModule for tracking treats (food edibles)
+    /// </summary>
+    class TreatTracker : AIModule       // not to be confused with the threat trackers :)))
     {
-        public TreatTracker(ArtificialIntelligence AI) : base(AI)
+        public TreatTracker(ArtificialIntelligence AI, int maxFoodCount, float persistance, float discourageDist)
+            : base(AI)
         {
-            edibles = new List<AbstractPhysicalObject>();
+            foods = new List<FoodRepresentation>();
+            this.maxFoodCount = maxFoodCount;
+            this.persistance = persistance;
+
+            this.discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
         }
 
         public override float Utility()
@@ -31,72 +41,237 @@ namespace SlugBrain.GameClasses
             Refresh();
         }
 
+        public override void Update()
+        {
+            base.Update();
+
+            if (refreshTimer >= 40)
+            {
+                Refresh();
+                refreshTimer = 0;
+            }
+            else refreshTimer++;
+
+        }
+        int refreshTimer = 0;
+
         public void Refresh()
         {
-            // remove objects that are no longer realised
-            List<AbstractPhysicalObject> ediblesToRemove = new List<AbstractPhysicalObject>();
-            foreach (AbstractPhysicalObject o in edibles)
+            // remove undesirable foods
+            List<FoodRepresentation> toRemove = new List<FoodRepresentation>();
+            foreach (FoodRepresentation fRep in foods)
             {
-                if (o.realizedObject == null) ediblesToRemove.Add(o);
+                if (fRep.RealizedObject == null || fRep.Attractiveness <= 0)
+                    toRemove.Add(fRep);
             }
-            foreach (AbstractPhysicalObject o in ediblesToRemove)
-            {
-                edibles.Remove(o);
-            }
+            foreach (FoodRepresentation fRep in toRemove) RemoveFood(fRep);
 
-            // check all loaded rooms for edibles
-            foreach (Room r in AI.creature.world.activeRooms)
+            foreach (Room room in AI.creature.world.activeRooms)
             {
-                foreach (List<PhysicalObject> layer in r.physicalObjects)
+                foreach (List<PhysicalObject> layer in room.physicalObjects)
                 {
                     foreach (PhysicalObject obj in layer)
                     {
                         if (obj is IPlayerEdible)
                         {
-                            edibles.Add(obj.abstractPhysicalObject);
+                            AddFood(obj.abstractPhysicalObject);
                         }
                     }
                 }
             }
 
-            BrainPlugin.Log($"treat tracker can see {edibles.Count} edible items");
+            BrainPlugin.Log($"treat tracker can see {foods.Count} edible items");
         }
 
-        public WorldCoordinate GetNearestEdibleLocation(out PhysicalObject edible)
+        public void AddFood(AbstractPhysicalObject obj)
         {
-            edible = null;
-            int nearest = -1;
-            float minDist = float.PositiveInfinity;
-
-            for (int i = 0; i < edibles.Count; i++)
+            // don't add duplicates
+            foreach (FoodRepresentation fRep in foods)
             {
-                if (AI.pathFinder.CoordinateReachable(edibles[i].pos))
+                if (fRep.abstractObject == obj) return;
+            }
+
+            FoodRepresentation newFood = new FoodRepresentation(this, obj);
+            if (newFood.Attractiveness <= 0) return;    // don't add undesirables
+
+            foods.Add(newFood);
+
+            // remove least desirable object if too many are stored
+            if (foods.Count > maxFoodCount)
+            {
+                RemoveFood(LeastAttractiveFood);
+            }
+        }
+
+        public void RemoveFood(FoodRepresentation fRep)
+        {
+            fRep.CleanDebugNode();
+            foods.Remove(fRep);
+        }
+        public void RemoveFood(AbstractPhysicalObject obj)
+        {
+            for (int i = 0; i < foods.Count; i++)
+            {
+                if (foods[i].abstractObject == obj)
                 {
-                    // distance to other rooms is complicated so that's a TODO
+                    foods[i].CleanDebugNode();
+                    foods.RemoveAt(i);
+                    return;
+                }
+            }
+        }
 
-                    float dist = RWCustom.Custom.WorldCoordFloatDist(AI.creature.pos, edibles[i].pos);
-                    if (edibles[i] == target) dist -= targetPersistance;
+        public FoodRepresentation LeastAttractiveFood
+        {
+            get
+            {
+                FoodRepresentation leastAttractive = null;
+                float minAttraction = float.PositiveInfinity;
 
-                    if (dist > -1 && dist < minDist)
+                for (int i = 0; i < foods.Count; i++)
+                {
+                    float n = foods[i].Attractiveness;
+                    if (n < minAttraction)
                     {
-                        nearest = i;
-                        minDist = dist;
+                        leastAttractive = foods[i];
+                        minAttraction = n;
                     }
+                }
+
+                return leastAttractive;
+            }
+        }
+
+        public FoodRepresentation MostAttractiveFood
+        {
+            get
+            {
+                FoodRepresentation mostAttractive = null;
+                float maxAttraction = float.NegativeInfinity;
+
+                for (int i = 0; i < foods.Count; i++)
+                {
+                    float n = foods[i].Attractiveness;
+                    if (foods[i] == lastMostAttractiveFood) n *= persistance;
+
+                    if (n > maxAttraction)
+                    {
+                        mostAttractive = foods[i];
+                        maxAttraction = n;
+                    }
+                }
+
+                lastMostAttractiveFood = mostAttractive;
+                return mostAttractive;
+            }
+        }
+
+        FoodRepresentation lastMostAttractiveFood;
+
+        public WorldCoordinate GetMostAttractiveFoodDestination(out FoodRepresentation fRep)
+        {
+            if (MostAttractiveFood != null)
+            {
+                fRep = MostAttractiveFood;
+                return MostAttractiveFood.abstractObject.pos;
+            }
+            else
+            {
+                fRep = null;
+                return new WorldCoordinate(-1, -1, -1, -1);
+            }
+        }
+
+        /// <summary>
+        /// Checks whether the player is close enough to food to grab it.
+        /// </summary>
+        public bool CheckFoodProximity(WorldCoordinate playerCoords, float playerChunkRad, out FoodRepresentation fRep)
+        {
+            WorldCoordinate edibleCoords = GetMostAttractiveFoodDestination(out fRep);
+
+            if (fRep != null && fRep.RealizedObject != null)
+            {
+                BrainPlugin.Log($"player: {playerCoords}\t  food: {fRep.RealizedObject} {edibleCoords}  {fRep.Attractiveness}");
+                BrainPlugin.Log($"dist to food {Custom.WorldCoordFloatDist(playerCoords, edibleCoords)}");
+
+                if (Custom.DistLess(playerCoords, edibleCoords, playerChunkRad / 20f + 2f))
+                {
+                    return true;
                 }
             }
 
-            if (nearest > -1)
-            {
-                target = edibles[nearest];
-                edible = target.realizedObject;
-                return edibles[nearest].pos;
-            }
-            else return AI.creature.pos;        // no edibles found -- TODO add random at some point
+            return false;
         }
 
-        float targetPersistance = 40f;
-        AbstractPhysicalObject target;
-        public readonly List<AbstractPhysicalObject> edibles;
+        public void DrawDebugNodes()
+        {
+            foreach (FoodRepresentation fRep in foods)
+            {
+                fRep.DrawDebugNode();
+            }
+        }
+
+
+        List<FoodRepresentation> foods;
+        readonly int maxFoodCount;
+        readonly float persistance;
+        readonly float discourageDist;
+
+        AImap AImap => AI.creature.realizedCreature.room?.aimap;
+
+        
+        public class FoodRepresentation
+        {
+            public FoodRepresentation(TreatTracker tracker, AbstractPhysicalObject obj)
+            {
+                this.tracker = tracker;
+                abstractObject = obj;
+
+                debugNode = new DebugNode(new Color(0.3f, 0.3f, 0.7f));
+            }
+
+            public float Attractiveness
+            {
+                get
+                {
+                    if (RealizedObject == null) return -1f;
+
+                    float dist = (tracker.AI as SlugcatAI).EstimateTileDistance(tracker.AI.creature.pos, abstractObject.pos);
+                    float score = Mathf.Lerp(1f, 0f, dist / tracker.discourageDist);
+
+                    if (RealizedObject is DangleFruit || RealizedObject is EggBugEgg)
+                    {
+                        score *= 1.3f;
+                    }
+
+                    return score;
+                }
+            }
+
+            public void DrawDebugNode()
+            {
+                if (debugNode != null && RealizedObject != null &&
+                    RealizedObject.room == tracker.AI.creature.realizedCreature.room)
+                    debugNode.UpdatePosition(RealizedObject.room, abstractObject.pos.Tile);
+                else
+                    CleanDebugNode();
+            }
+
+            public void CleanDebugNode()
+            {
+                if (debugNode == null) return;
+                debugNode.Destroy();
+                debugNode = null;
+            }
+
+
+            readonly TreatTracker tracker;
+            public readonly AbstractPhysicalObject abstractObject;
+            public PhysicalObject RealizedObject => abstractObject?.realizedObject;
+
+            DebugNode debugNode;
+
+        }
 
     }
 }

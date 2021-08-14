@@ -13,7 +13,7 @@ namespace SlugBrain
 
         public void UpdatePosition(Room room, IntVector2 pos)
         {
-            if (this.room != room)
+            if (this.room != room && room != null)
             {
                 RemoveFromRoom();
                 room.AddObject(this);

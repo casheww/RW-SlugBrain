@@ -13,6 +13,7 @@ namespace SlugBrain.GameClasses
             stationaryCounter = 0;
             preferedChunkIndex = 0;
             leftShelterThisCycle = false;
+            tryingToGrabFood = false;
         }
 
         public override void Update(bool eu)
@@ -30,10 +31,9 @@ namespace SlugBrain.GameClasses
 
             if (!leftShelterThisCycle && !room.abstractRoom.shelter) leftShelterThisCycle = true;
 
-            if (AI.rainTracker.Utility() > 0.6f)    // || (leftShelterThisCycle && room.abstractRoom.shelter)
+            if (AI.rainTracker.Utility() > 0.7f)
             {
                 wantToSleep = true;
-                BrainPlugin.Log("sleepy time soon");
             }
 
             if (room.abstractRoom.shelter)
@@ -53,6 +53,7 @@ namespace SlugBrain.GameClasses
 
             if (CurrentFood < MaxFoodInStomach)
             {
+                // eat anything already in hands
                 foreach (Grasp g in grasps)
                 {
                     if (g != null && g.grabbed is IPlayerEdible _e && Safe)
@@ -63,17 +64,20 @@ namespace SlugBrain.GameClasses
                     }
                 }
 
-                WorldCoordinate nearestEdibleCoords =
-                    AI.treatTracker.GetNearestEdibleLocation(out PhysicalObject edible);
-                if (edible != null)
+                // grab nearby food
+                if (AI.treatTracker.CheckFoodProximity(coord, bodyChunks[0].rad, out TreatTracker.FoodRepresentation fRep)
+                    && !tryingToGrabFood)
                 {
-                    if (Custom.DistLess(mainBodyChunk.pos, edible.bodyChunks[0].pos, 40f))
-                    {
-                        BrainPlugin.Log($"grabbing {edible}");
-                        GrabOrEat();
-                    }
+                    BrainPlugin.Log($"grabbing {fRep.RealizedObject}");
+                    GrabOrEat();
+                    tryingToGrabFood = true;
+                    return;
                 }
-                
+                else if (tryingToGrabFood)
+                {
+                    BrainPlugin.InputSpoofer.ClearInputExceptBuffer();
+                    tryingToGrabFood = false;
+                }
             }
 
             FollowPath();
@@ -137,13 +141,9 @@ namespace SlugBrain.GameClasses
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
             //Vector2 destDir = Custom.DirVec(movement.StartTile.ToVector2(), AI.Destination.Tile.ToVector2());
 
-            bool jmp = movement.type == MovementConnection.MovementType.ReachUp ||
-                       movement.type == MovementConnection.MovementType.DoubleReachUp ||
-                       movement.type == MovementConnection.MovementType.ReachOverGap ||
-                       unstick;
-
             int x;
             int y;
+            bool holdJmp = false;
 
             Room.Tile startTile = room.GetTile(movement.StartTile);
             Room.Tile destTile = room.GetTile(movement.DestTile);
@@ -159,29 +159,62 @@ namespace SlugBrain.GameClasses
                 if (slope == Room.SlopeDirection.UpLeft || slope == Room.SlopeDirection.UpRight) y = 1;
                 else y = 0;
             }
-            else if (startTile.verticalBeam && Mathf.Abs(dir.x) > 0)
-            {
-                BrainPlugin.Log("jumping off vertical beam");
-
-                x = Math.Sign(dir.x);
-                y = 0;
-                jmp = true;
-            }
             else
             {
-                x = Math.Sign(dir.x);
-                y = jmp ? 1 : Math.Sign(dir.y);
+                bool onBeam = CheckBeamStatus(movement.StartTile, out bool vBeam, out bool hBeam);
+
+                if (onBeam && vBeam && Mathf.Abs(dir.x) > 0)
+                {
+                    BrainPlugin.Log("jumping off vertical beam");
+                    x = Math.Sign(dir.x);
+                    y = 0;
+                    holdJmp = true;
+                }
+                else
+                {
+                    x = Math.Sign(dir.x);
+                    y = holdJmp ? 1 : Math.Sign(dir.y);
+                }
             }
             
             InputPackage input = new InputPackage(
                 false,
                 x, y,
-                jmp,
+                false,
                 false, false, false, false
             );
 
-            BrainPlugin.InputSpoofer.SetNewInputs(input);
+            BrainPlugin.InputSpoofer.PushNewInput(input);
             lastInput = input;
+
+            if (movement.type == MovementConnection.MovementType.ReachUp ||
+                movement.type == MovementConnection.MovementType.DoubleReachUp ||
+                movement.type == MovementConnection.MovementType.ReachOverGap ||
+                unstick ||
+                holdJmp)
+            {
+                BrainPlugin.InputSpoofer.Jump(20);
+            }
+        }
+
+        bool CheckBeamStatus(IntVector2 start, out bool vBeam, out bool hBeam)
+        {
+            Room.Tile startTile = room.GetTile(start);
+            hBeam = startTile.horizontalBeam;
+
+
+            vBeam = false;
+            for (int y = -2; y < 2; y++)
+            {
+                Room.Tile tile = room.GetTile(start + new IntVector2(0, y));
+                if (tile.verticalBeam)
+                {
+                    vBeam = true;
+                    break;
+                }
+            }
+
+            return vBeam || hBeam;
         }
 
         void Hibernate()
@@ -191,16 +224,16 @@ namespace SlugBrain.GameClasses
                 int x = abstractCreature.pos.x;
                 if (x == 25)
                 {
-                    BrainPlugin.InputSpoofer.SetNewInputs(new InputPackage());
+                    BrainPlugin.InputSpoofer.PushNewInput(new InputPackage());
                 }
                 else FollowPath();
             }
-            else BrainPlugin.InputSpoofer.SetNewInputs(new InputPackage());
+            else BrainPlugin.InputSpoofer.PushNewInput(new InputPackage());
         }
 
         void GrabOrEat()
         {
-            BrainPlugin.InputSpoofer.SetNewInputs(new InputPackage() { pckp = true });
+            BrainPlugin.InputSpoofer.PushNewInput(new InputPackage() { pckp = true });
         }
 
 
@@ -218,13 +251,14 @@ namespace SlugBrain.GameClasses
 
             if (BrainPlugin.debugTerrainAndSlopes)
             {
-                IntVector2 tPos = room.GetTilePosition(
-                    new Vector2((int)Input.mousePosition.x, (int)Input.mousePosition.y) + room.game.cameras[0].pos);
+                Vector2 mPos = new Vector2((int)Input.mousePosition.x, (int)Input.mousePosition.y);
+                IntVector2 tPos = room.GetTilePosition(mPos + room.game.cameras[0].pos);
 
                 tileDebugLabel.x = Input.mousePosition.x;
                 tileDebugLabel.y = Input.mousePosition.y;
 
-                tileDebugLabel.text = $"{tPos}\n" +
+                tileDebugLabel.text = $"{mPos}\n" +
+                    $"{tPos}\n" +
                     $"terrain:{room.GetTile(tPos).Terrain}\n" +
                     $"slope:{room.IdentifySlope(tPos)}";
             }
@@ -245,6 +279,8 @@ namespace SlugBrain.GameClasses
         int stationaryCounter;
         WorldCoordinate lastPreferedStart;
         bool leftShelterThisCycle;
+
+        bool tryingToGrabFood;
         
         public bool Safe
         {
