@@ -80,7 +80,7 @@ namespace SlugBrain.GameClasses
                 }
             }
 
-            BrainPlugin.Log($"treat tracker can see {foods.Count} edible items");
+            BrainPlugin.TextManager.Write("treat tracker", $"refreshed - {foods.Count} edibles", new Color(0.9f, 0.7f, 0.7f), 20);
         }
 
         public void AddFood(AbstractPhysicalObject obj)
@@ -185,7 +185,7 @@ namespace SlugBrain.GameClasses
         /// <summary>
         /// Checks whether the player is close enough to food to grab it.
         /// </summary>
-        public bool CheckFoodProximity(WorldCoordinate playerCoords, float playerChunkRad, out FoodRepresentation fRep)
+        public bool CheckFoodProximity(WorldCoordinate playerCoords, out FoodRepresentation fRep)
         {
             WorldCoordinate edibleCoords = GetMostAttractiveFoodDestination(out fRep);
 
@@ -194,7 +194,7 @@ namespace SlugBrain.GameClasses
                 BrainPlugin.Log($"player: {playerCoords}\t  food: {fRep.RealizedObject} {edibleCoords}  {fRep.Attractiveness}");
                 BrainPlugin.Log($"dist to food {Custom.WorldCoordFloatDist(playerCoords, edibleCoords)}");
 
-                if (Custom.DistLess(playerCoords, edibleCoords, playerChunkRad / 20f + 2f))
+                if (Custom.DistLess(playerCoords, edibleCoords, (AI.creature.realizedCreature as SuperSlugcat).GrabRange))
                 {
                     return true;
                 }
@@ -235,6 +235,12 @@ namespace SlugBrain.GameClasses
                 get
                 {
                     if (RealizedObject == null) return -1f;
+
+                    if (!tracker.AImap.TileAccessibleToCreature(abstractObject.pos.Tile,
+                            StaticWorld.GetCreatureTemplate(CreatureTemplate.Type.Slugcat)))
+                    {
+                        return -1f;
+                    }
 
                     float dist = (tracker.AI as SlugcatAI).EstimateTileDistance(tracker.AI.creature.pos, abstractObject.pos);
                     float score = Mathf.Lerp(1f, 0f, dist / tracker.discourageDist);

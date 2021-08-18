@@ -14,6 +14,8 @@ namespace SlugBrain.GameClasses
             preferedChunkIndex = 0;
             leftShelterThisCycle = false;
             tryingToGrabFood = false;
+
+            GrabRange = bodyChunks[0].rad / 20f + 2f;
         }
 
         public override void Update(bool eu)
@@ -48,7 +50,6 @@ namespace SlugBrain.GameClasses
                     BrainPlugin.Log("trying to leave shelter");
                     AI.SetDestination(new WorldCoordinate(room.abstractRoom.index, -1, -1, 0));
                 }
-                
             }
 
             if (CurrentFood < MaxFoodInStomach)
@@ -65,7 +66,7 @@ namespace SlugBrain.GameClasses
                 }
 
                 // grab nearby food
-                if (AI.treatTracker.CheckFoodProximity(coord, bodyChunks[0].rad, out TreatTracker.FoodRepresentation fRep)
+                if (AI.treatTracker.CheckFoodProximity(coord, out TreatTracker.FoodRepresentation fRep)
                     && !tryingToGrabFood)
                 {
                     BrainPlugin.Log($"grabbing {fRep.RealizedObject}");
@@ -85,6 +86,7 @@ namespace SlugBrain.GameClasses
 
         void FollowPath()
         {
+            // prefered and backup start positions are used because one chunk may not be able to reach a valid path while the other can
             WorldCoordinate preferedStart = room.GetWorldCoordinate(bodyChunks[preferedChunkIndex].pos);
             WorldCoordinate backupStart = room.GetWorldCoordinate(bodyChunks[NotPreferedChunkIndex].pos);
 
@@ -132,6 +134,8 @@ namespace SlugBrain.GameClasses
 
         void Move(MovementConnection movement, bool unstick = false)
         {
+            LastMovement = movement;
+
             if (destNode == null) destNode = new DebugNode(Color.white);
             destNode.UpdatePosition(room, movement.DestTile);
 
@@ -293,6 +297,10 @@ namespace SlugBrain.GameClasses
 
         int preferedChunkIndex;
         int NotPreferedChunkIndex => preferedChunkIndex == 0 ? 1 : 0;
+
+        public MovementConnection LastMovement { get; private set; }
+
+        public float GrabRange { get; private set; }
 
     }
 }

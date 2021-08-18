@@ -36,6 +36,8 @@ namespace SlugBrain.GameClasses
 
             submergedLastUpdate = false;
 
+            jumpModule = new JumpModule(this);
+
             behavior = Behavior.FollowPath;
 
             BrainPlugin.Log("SlugcatAI ctor done");
@@ -73,7 +75,7 @@ namespace SlugBrain.GameClasses
             AIModule urge = utilityComparer.HighestUtilityModule();
             float urgeStrength = utilityComparer.HighestUtility();
 
-            SetAIDebugLabel(urge);
+            DoTextDebugs(urge);
 
             if (urge is ThreatTracker) behavior = Behavior.Flee;
             else if (urge is RainTracker) behavior = Behavior.EscapeRain;
@@ -114,55 +116,6 @@ namespace SlugBrain.GameClasses
             }
 
             SetDestination(destination);
-        }
-
-        void DrawDebugNodes()
-        {
-            Room room = creature.Room.realizedRoom;
-            if (room == null) return;
-
-            treatTracker.DrawDebugNodes();
-
-
-            if (shelterNode == null) shelterNode = new DebugNode(new Color(0.86f, 0.53f, 0.82f));
-            shelterNode.UpdatePosition(room, shelterFinder.ExitTile);
-
-            if (threatNode == null) threatNode = new DebugNode(new Color(1f, 0.07f, 0.07f));
-            if (threatTracker.mostThreateningCreature != null)
-                threatNode.UpdatePosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
-
-            if (overallDestinationNode == null) overallDestinationNode = new DebugNode(new Color(0.3f, 0.8f, 0.4f));
-            if (Destination.room == room.abstractRoom.index)
-            {
-                IntVector2 t = DestinationTile;
-                overallDestinationNode.UpdatePosition(room, t);
-            }
-            else overallDestinationNode.UpdatePosition(room, new IntVector2(1, room.TileHeight - 1));
-
-        }
-
-        void SetAIDebugLabel(AIModule urge)
-        {
-            if (AIdebugLabel == null)
-            {
-                AIdebugLabel = new FLabel("font", "-")
-                {
-                    color = new Color(0.5f, 0.7f, 0.8f),
-                    scale = 1.2f
-                };
-                Futile.stage.AddChild(AIdebugLabel);
-            }
-
-            string destHint = Destination.room == creature.Room.index ? $" ({DestinationTile})" : "";
-
-            AIdebugLabel.text = $"top module : {urge} {urge.Utility()}\n" +
-                $"active path finder : {pathFinder}\n" +
-                $"dest : {Destination} {destHint}";
-
-            Vector2 pos = creature.realizedCreature.mainBodyChunk.pos + creature.Room.realizedRoom.game.cameras[0].pos;
-            AIdebugLabel.x = pos.x;
-            AIdebugLabel.y = pos.y;
-
         }
 
         public new void SetDestination(WorldCoordinate dest)
@@ -231,6 +184,42 @@ namespace SlugBrain.GameClasses
         }
 
 
+
+        void DrawDebugNodes()
+        {
+            Room room = creature.Room.realizedRoom;
+            if (room == null) return;
+
+            treatTracker.DrawDebugNodes();
+
+
+            if (shelterNode == null) shelterNode = new DebugNode(new Color(0.86f, 0.53f, 0.82f));
+            shelterNode.UpdatePosition(room, shelterFinder.ExitTile);
+
+            if (threatNode == null) threatNode = new DebugNode(new Color(1f, 0.07f, 0.07f));
+            if (threatTracker.mostThreateningCreature != null)
+                threatNode.UpdatePosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
+
+            if (overallDestinationNode == null) overallDestinationNode = new DebugNode(new Color(0.3f, 0.8f, 0.4f));
+            if (Destination.room == room.abstractRoom.index)
+            {
+                IntVector2 t = DestinationTile;
+                overallDestinationNode.UpdatePosition(room, t);
+            }
+            else overallDestinationNode.UpdatePosition(room, new IntVector2(1, room.TileHeight - 1));
+        }
+
+        void DoTextDebugs(AIModule highestModule)
+        {
+            BrainPlugin.TextManager.Write("pos   ", creature.pos);
+            BrainPlugin.TextManager.Write("dest  ", Destination);
+            BrainPlugin.TextManager.Write("mvmnt ", slugcat.LastMovement);
+            BrainPlugin.TextManager.Write("top module", $"{highestModule} {highestModule.Utility()}");
+            BrainPlugin.TextManager.Write("active pathfinder", pathFinder);
+        }
+
+
+
         public enum Behavior
         {
             FollowPath,
@@ -246,6 +235,7 @@ namespace SlugBrain.GameClasses
         public TreatTracker treatTracker;
         public PathFinder standardPathFinder;
         public PathFinder swimmingPathFinder;
+        public JumpModule jumpModule;
 
         bool submergedLastUpdate;
 
@@ -254,7 +244,6 @@ namespace SlugBrain.GameClasses
         DebugNode shelterNode;
         DebugNode threatNode;
         DebugNode overallDestinationNode;
-        FLabel AIdebugLabel;
 
         public WorldCoordinate Destination { get; private set; }
 

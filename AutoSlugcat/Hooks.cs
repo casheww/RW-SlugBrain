@@ -1,4 +1,5 @@
 ﻿using SlugBrain.GameClasses;
+using RWCustom;
 
 namespace SlugBrain
 {
@@ -11,6 +12,8 @@ namespace SlugBrain
             On.AbstractCreature.InitiateAI += AbstractCreature_InitiateAI;
             On.Player.checkInput += Player_checkInput;
             On.Player.ObjectEaten += Player_ObjectEaten;
+            On.AImap.IsConnectionAllowedForCreature += AImap_IsConnectionAllowedForCreature;
+            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate += AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate;
         }
         public static void Disable()
         {
@@ -19,6 +22,8 @@ namespace SlugBrain
             On.AbstractCreature.InitiateAI -= AbstractCreature_InitiateAI;
             On.Player.checkInput -= Player_checkInput;
             On.Player.ObjectEaten -= Player_ObjectEaten;
+            On.AImap.IsConnectionAllowedForCreature -= AImap_IsConnectionAllowedForCreature;
+            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate -= AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate;
         }
 
         private static void AbstractCreature_ctor(On.AbstractCreature.orig_ctor orig, AbstractCreature self,
@@ -79,6 +84,36 @@ namespace SlugBrain
                 super.AI.treatTracker.RemoveFood((edible as PhysicalObject).abstractPhysicalObject);
             }
         }
+
+        private static bool AImap_IsConnectionAllowedForCreature(On.AImap.orig_IsConnectionAllowedForCreature orig,
+            AImap self, MovementConnection connection, CreatureTemplate crit)
+        {
+            bool result = orig(self, connection, crit);
+
+            if (crit.type == CreatureTemplate.Type.Slugcat)
+            {
+                if (self.TileAccessibleToCreature(connection.DestTile, crit)) result = true;
+            }
+
+            return result;
+        }
+
+        private static bool AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate(
+            On.AImap.orig_TileAccessibleToCreature_IntVector2_CreatureTemplate orig, AImap self, IntVector2 pos, CreatureTemplate crit)
+        {
+            bool result = orig(self, pos, crit);
+
+            if (crit.type == CreatureTemplate.Type.Slugcat && !isCheckingJump)
+            {
+                isCheckingJump = true;
+                if (JumpModule.CheckIsJumpable(self, pos, crit)) result = true;
+                isCheckingJump = false;
+            }
+
+            return result;
+        }
+        static bool isCheckingJump = false;     // prevent stack overflow
+
 
     }
 }

@@ -12,9 +12,13 @@ namespace SlugBrain
         {
             _Logger = Logger;
 
+            if (!Directory.Exists(logDir)) Directory.CreateDirectory(logDir);
             File.WriteAllText(logPath, "");
+            Log($"SlugBrain started! casheww was ere \t{DateTime.Now}\n");
+
             InputSpoofer = new InputSpoofer();
-            Log($"AutoSlugcat started! {DateTime.Now}\n");
+
+            TextManager = new TextManager.DebugTextManager();
 
             Hooks.Enable();
         }
@@ -26,6 +30,8 @@ namespace SlugBrain
 
         void Update()
         {
+            TextManager.Update();
+
             if (Input.GetKeyDown(KeyCode.PageDown)) debugAI = !debugAI;
             if (Input.GetKeyDown(KeyCode.End)) debugTerrainAndSlopes = !debugTerrainAndSlopes;
         }
@@ -47,8 +53,10 @@ namespace SlugBrain
         public static BepInEx.Logging.ManualLogSource _Logger { get; private set; }
         public static InputSpoofer InputSpoofer { get; private set; }
 
-        const string logPath = "./Mods/AutoSlugcatStuff/log.txt";
-        const string pathPath = "./Mods/AutoSlugcatStuff/pathing.txt";
+        public static TextManager.DebugTextManager TextManager { get; private set; }
+
+        const string logDir = "./Mods/SlugBrain";
+        const string logPath = logDir + "/log.txt";
 
         public static bool debugAI = true;
         public static bool debugTerrainAndSlopes = false;
