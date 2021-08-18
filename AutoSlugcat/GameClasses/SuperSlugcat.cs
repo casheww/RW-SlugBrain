@@ -136,10 +136,10 @@ namespace SlugBrain.GameClasses
         {
             LastMovement = movement;
 
-            if (destNode == null) destNode = new DebugNode(Color.white);
+            if (destNode == null) destNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.MoveTo));
             destNode.UpdatePosition(room, movement.DestTile);
 
-            if (currentNode == null) currentNode = new DebugNode(new Color(0.1f, 0.6f, 0.2f));
+            if (currentNode == null) currentNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Position));
             currentNode.UpdatePosition(room, movement.StartTile);
 
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
@@ -158,7 +158,7 @@ namespace SlugBrain.GameClasses
                 BrainPlugin.Log($"slope {slope}");
 
                 if (lastInput.x != 0) x = lastInput.x;
-                else x = dir.x < 0 ? -1 : (dir.x > 0 ? 1 : 0); 
+                else x = dir.x < -0.5f ? -1 : (dir.x > 0.5f ? 1 : 0);
 
                 if (slope == Room.SlopeDirection.UpLeft || slope == Room.SlopeDirection.UpRight) y = 1;
                 else y = 0;
@@ -266,7 +266,7 @@ namespace SlugBrain.GameClasses
                     $"terrain:{room.GetTile(tPos).Terrain}\n" +
                     $"slope:{room.IdentifySlope(tPos)}";
             }
-            else
+            else 
             {
                 tileDebugLabel.text = "";
             }

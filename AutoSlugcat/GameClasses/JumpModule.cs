@@ -16,7 +16,9 @@ namespace SlugBrain.GameClasses
         {
             for (int i = 1; i <= jumpHeight; i++)
             {
-                if (aimap.TileAccessibleToCreature(dest.x, dest.y - i, crit)) return true;
+                Room.Tile.TerrainType terrain = aimap.room.GetTile(dest).Terrain;
+                if (aimap.TileAccessibleToCreature(dest.x, dest.y - i, crit) &&
+                    terrain != Room.Tile.TerrainType.Solid && terrain != Room.Tile.TerrainType.Slope) return true;
             }
 
             return false;

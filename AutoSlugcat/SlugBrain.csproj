@@ -51,6 +51,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DebugColors.cs" />
     <Compile Include="DebugNode.cs" />
     <Compile Include="DebugTextManager.cs" />
     <Compile Include="GameClasses\JumpModule.cs" />

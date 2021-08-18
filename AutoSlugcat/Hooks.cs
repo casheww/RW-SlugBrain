@@ -78,10 +78,10 @@ namespace SlugBrain
         {
             orig(self, edible);
 
-            if (self is SuperSlugcat super)
+            if (self is SuperSlugcat slugcat)
             {
                 BrainPlugin.Log($"consumed {edible} - yummy yummy");
-                super.AI.treatTracker.RemoveFood((edible as PhysicalObject).abstractPhysicalObject);
+                slugcat.AI.treatTracker.RegisterFoodEaten((edible as PhysicalObject).abstractPhysicalObject);
             }
         }
 

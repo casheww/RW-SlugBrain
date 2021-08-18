@@ -6,9 +6,10 @@ namespace SlugBrain
 {
     class DebugNode : CosmeticSprite
     {
-        public DebugNode(Color baseColor)
+        public DebugNode(Color baseColor, bool big = false)
         {
             color = baseColor;
+            this.big = big;
         }
 
         public void UpdatePosition(Room room, IntVector2 pos)
@@ -27,8 +28,7 @@ namespace SlugBrain
             sLeaser.sprites = new FSprite[1];
             sLeaser.sprites[0] = new FSprite("pixel", true)
             {
-                scaleX = 5f,
-                scaleY = 5f
+                scale = Scale
             };
             AddToContainer(sLeaser, rCam, null);
         }
@@ -55,6 +55,8 @@ namespace SlugBrain
 
         IntVector2 tileCoords;
         Color color;
+        bool big;
+        float Scale => big ? 7.5f : 5f;
 
     }
 }

@@ -18,6 +18,8 @@ namespace SlugBrain.GameClasses
             this.persistance = persistance;
 
             this.discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
+
+            foodColor = DebugColors.GetColor(DebugColors.Subject.Food);
         }
 
         public override float Utility()
@@ -47,8 +49,8 @@ namespace SlugBrain.GameClasses
 
             if (refreshTimer >= 40)
             {
-                Refresh();
                 refreshTimer = 0;
+                Refresh();
             }
             else refreshTimer++;
 
@@ -80,7 +82,7 @@ namespace SlugBrain.GameClasses
                 }
             }
 
-            BrainPlugin.TextManager.Write("treat tracker", $"refreshed - {foods.Count} edibles", new Color(0.9f, 0.7f, 0.7f), 20);
+            BrainPlugin.TextManager.Write("treats", $"refreshed - {FoodsInRoom.Count} in room ({foods.Count} total)", foodColor, 20);
         }
 
         public void AddFood(AbstractPhysicalObject obj)
@@ -103,10 +105,10 @@ namespace SlugBrain.GameClasses
             }
         }
 
-        public void RemoveFood(FoodRepresentation fRep)
+        public void RegisterFoodEaten(AbstractPhysicalObject obj)
         {
-            fRep.CleanDebugNode();
-            foods.Remove(fRep);
+            RemoveFood(obj);
+            AI.pathFinder.Reset(AI.creature.realizedCreature.room);
         }
         public void RemoveFood(AbstractPhysicalObject obj)
         {
@@ -114,11 +116,15 @@ namespace SlugBrain.GameClasses
             {
                 if (foods[i].abstractObject == obj)
                 {
-                    foods[i].CleanDebugNode();
-                    foods.RemoveAt(i);
+                    RemoveFood(foods[i]);
                     return;
                 }
             }
+        }
+        public void RemoveFood(FoodRepresentation fRep)
+        {
+            fRep.CleanDebugNode();
+            foods.Remove(fRep);
         }
 
         public FoodRepresentation LeastAttractiveFood
@@ -161,6 +167,7 @@ namespace SlugBrain.GameClasses
                     }
                 }
 
+                BrainPlugin.TextManager.Write("best food", mostAttractive, foodColor);
                 lastMostAttractiveFood = mostAttractive;
                 return mostAttractive;
             }
@@ -177,6 +184,7 @@ namespace SlugBrain.GameClasses
             }
             else
             {
+                BrainPlugin.TextManager.Write("treats", "no attractive food :(", foodColor, 60);
                 fRep = null;
                 return new WorldCoordinate(-1, -1, -1, -1);
             }
@@ -191,9 +199,6 @@ namespace SlugBrain.GameClasses
 
             if (fRep != null && fRep.RealizedObject != null)
             {
-                BrainPlugin.Log($"player: {playerCoords}\t  food: {fRep.RealizedObject} {edibleCoords}  {fRep.Attractiveness}");
-                BrainPlugin.Log($"dist to food {Custom.WorldCoordFloatDist(playerCoords, edibleCoords)}");
-
                 if (Custom.DistLess(playerCoords, edibleCoords, (AI.creature.realizedCreature as SuperSlugcat).GrabRange))
                 {
                     return true;
@@ -212,12 +217,15 @@ namespace SlugBrain.GameClasses
         }
 
 
-        List<FoodRepresentation> foods;
+        readonly List<FoodRepresentation> foods;
         readonly int maxFoodCount;
         readonly float persistance;
         readonly float discourageDist;
+        readonly Color foodColor;
 
         AImap AImap => AI.creature.realizedCreature.room?.aimap;
+
+        List<FoodRepresentation> FoodsInRoom => foods.Where(f => f.abstractObject.Room == AI.creature.Room).ToList();
 
         
         public class FoodRepresentation
@@ -227,7 +235,7 @@ namespace SlugBrain.GameClasses
                 this.tracker = tracker;
                 abstractObject = obj;
 
-                debugNode = new DebugNode(new Color(0.3f, 0.3f, 0.7f));
+                debugNode = new DebugNode(tracker.foodColor);
             }
 
             public float Attractiveness
@@ -236,8 +244,7 @@ namespace SlugBrain.GameClasses
                 {
                     if (RealizedObject == null) return -1f;
 
-                    if (!tracker.AImap.TileAccessibleToCreature(abstractObject.pos.Tile,
-                            StaticWorld.GetCreatureTemplate(CreatureTemplate.Type.Slugcat)))
+                    if (!(tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(tracker.AImap, abstractObject.pos.Tile))
                     {
                         return -1f;
                     }
@@ -247,7 +254,7 @@ namespace SlugBrain.GameClasses
 
                     if (RealizedObject is DangleFruit || RealizedObject is EggBugEgg)
                     {
-                        score *= 1.3f;
+                        score *= 1.2f;
                     }
 
                     return score;
@@ -268,6 +275,11 @@ namespace SlugBrain.GameClasses
                 if (debugNode == null) return;
                 debugNode.Destroy();
                 debugNode = null;
+            }
+
+            public override string ToString()
+            {
+                return $"{RealizedObject.GetType()}  {abstractObject.pos.Tile}";
             }
 
 

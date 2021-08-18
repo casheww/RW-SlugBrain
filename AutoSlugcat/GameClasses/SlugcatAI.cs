@@ -45,6 +45,8 @@ namespace SlugBrain.GameClasses
 
         public override void Update()
         {
+            if (Input.GetKeyDown(KeyCode.Home)) pathFinder.visualize = !pathFinder.visualize;
+
             base.Update();
 
             if (creature.Room.realizedRoom == null || creature.realizedCreature == null) return;
@@ -193,14 +195,15 @@ namespace SlugBrain.GameClasses
             treatTracker.DrawDebugNodes();
 
 
-            if (shelterNode == null) shelterNode = new DebugNode(new Color(0.86f, 0.53f, 0.82f));
+            if (shelterNode == null) shelterNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Shelter));
             shelterNode.UpdatePosition(room, shelterFinder.ExitTile);
 
-            if (threatNode == null) threatNode = new DebugNode(new Color(1f, 0.07f, 0.07f));
+            if (threatNode == null) threatNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Threat));
             if (threatTracker.mostThreateningCreature != null)
                 threatNode.UpdatePosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
 
-            if (overallDestinationNode == null) overallDestinationNode = new DebugNode(new Color(0.3f, 0.8f, 0.4f));
+            if (overallDestinationNode == null) overallDestinationNode =
+                    new DebugNode(DebugColors.GetColor(DebugColors.Subject.Destination), true);
             if (Destination.room == room.abstractRoom.index)
             {
                 IntVector2 t = DestinationTile;
