@@ -11,11 +11,24 @@ namespace SlugBrain.GameClasses
             threats = 0;
         }
 
+        public float DesireToGoBack(bool hungry)
+        {
+            float desire;
+
+            if (hungry)
+                desire = (food + threats == 0) ? 0 : (food / (float)(food + threats));
+            else
+                desire = Mathf.Clamp01(threats / (float)threatLimit);
+
+            return desire;
+        }
+
         public readonly AbstractRoom room;
         public int food;
         public int threats;
+        public float distToShelter;
 
-        public float DesireToGoBack => Mathf.Lerp(0f, 1f, (food + threats == 0) ? 0 : food / (float)(food + threats));
+        const int threatLimit = 2;
 
     }
 }

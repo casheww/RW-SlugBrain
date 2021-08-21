@@ -8,7 +8,7 @@ namespace SlugBrain.GameClasses
     /// <summary>
     /// AIModule for tracking treats (food edibles)
     /// </summary>
-    class TreatTracker : AIModule       // not to be confused with the threat trackers :)))
+    class TreatTracker : SlugcatAIModule        // not to be confused with the threat trackers :)))
     {
         public TreatTracker(ArtificialIntelligence AI, int maxFoodCount, float persistance, float discourageDist)
             : base(AI)
@@ -210,21 +210,6 @@ namespace SlugBrain.GameClasses
             return false;
         }
 
-        public void DrawDebugNodes()
-        {
-            foreach (FoodRepresentation fRep in foods)
-            {
-                fRep.DrawDebugNode();
-            }
-        }
-
-
-        readonly List<FoodRepresentation> foods;
-        readonly int maxFoodCount;
-        readonly float persistance;
-        readonly float discourageDist;
-        readonly Color foodColor;
-
         public List<FoodRepresentation> FoodsInRoom(AbstractRoom room, bool shouldBeAccessible)
         {
             List<FoodRepresentation> foodsInRoom = foods.Where(f => f.abstractObject.Room == room).ToList();
@@ -236,8 +221,28 @@ namespace SlugBrain.GameClasses
 
             return foodsInRoom;
         }
-            
 
+        public void DrawDebugNodes()
+        {
+            foreach (FoodRepresentation fRep in foods)
+            {
+                fRep.DrawDebugNode();
+            }
+        }
+
+        public override void UpdateRoomRepresentation(RoomRepresentation rRep)
+        {
+            rRep.food = FoodsInRoom(rRep.room, true).Count;
+        }
+
+
+        readonly List<FoodRepresentation> foods;
+        readonly int maxFoodCount;
+        readonly float persistance;
+        readonly float discourageDist;
+        readonly Color foodColor;
+
+        
         public class FoodRepresentation
         {
             public FoodRepresentation(TreatTracker tracker, AbstractPhysicalObject obj)

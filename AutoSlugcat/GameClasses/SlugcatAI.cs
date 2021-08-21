@@ -39,7 +39,7 @@ namespace SlugBrain.GameClasses
 
             submergedLastUpdate = false;
             behavior = Behavior.Idle;
-            roomsVisited = new List<RoomRepresentation>();
+            roomMemory = new List<RoomRepresentation>();
 
             BrainPlugin.Log("SlugcatAI ctor done");
         }
@@ -57,7 +57,7 @@ namespace SlugBrain.GameClasses
             {
                 UpdateRoomRepresentation(room);
             }
-            BrainPlugin.TextManager.Write("room memory", roomsVisited.Count);
+            BrainPlugin.TextManager.Write("room memory", roomMemory.Count);
             
             DrawDebugNodes();
 
@@ -124,7 +124,8 @@ namespace SlugBrain.GameClasses
             // explore if the module has no destination in mind
             if (destination.room == -1)     // screaming
             {
-                destination = Explore();
+                destination = Explore(out float desire);
+                BrainPlugin.TextManager.Write("exploring", $"{destination} - {desire}", new Color(0.7f, 0.3f, 0.4f), 30);
             }
 
             if (destination.room == -1)     // more screaming
@@ -155,7 +156,7 @@ namespace SlugBrain.GameClasses
             RoomRepresentation thisRoomRep = null;
 
             // check if this room has been visited before
-            foreach (RoomRepresentation rRep in roomsVisited)
+            foreach (RoomRepresentation rRep in roomMemory)
             {
                 if (rRep.room == room.abstractRoom)
                 {
@@ -167,22 +168,38 @@ namespace SlugBrain.GameClasses
             if (thisRoomRep == null)
             {
                 thisRoomRep = new RoomRepresentation(room.abstractRoom);
-                roomsVisited.Add(thisRoomRep);
+                roomMemory.Add(thisRoomRep);
             }
 
-            thisRoomRep.food = treatTracker.FoodsInRoom(room.abstractRoom, true).Count;
-            thisRoomRep.threats =
-                threatTracker.threatCreatures.Where(t => t.creature.representedCreature.Room == room.abstractRoom).ToArray().Length;
+            foreach (AIModule module in modules)
+            {
+                if (module is SlugcatAIModule slugModule)
+                {
+                    slugModule.UpdateRoomRepresentation(thisRoomRep);
+                }
+            }
 
         }
 
-        public WorldCoordinate Explore()
+        public WorldCoordinate Explore(out float desire)
         {
+            RoomRepresentation closestToShelter = null;
+            float shelterDistance = float.MaxValue;
+
+            foreach (RoomRepresentation rRep in roomMemory)
+            {
+                if (rRep.distToShelter < shelterDistance)
+                {
+                    closestToShelter = rRep;
+                    shelterDistance = rRep.distToShelter;
+                }
+            }
+
             RoomRepresentation mostDesirable = null;
-            float highestDesirability = float.MinValue;
+            desire = float.MinValue;
             int exitToBestRoom = -1;
 
-            foreach (RoomRepresentation rRep in roomsVisited)
+            foreach (RoomRepresentation rRep in roomMemory)
             {
                 if (rRep.room == creature.Room) continue;
 
@@ -190,11 +207,13 @@ namespace SlugBrain.GameClasses
                 int exitToRoom = creature.Room.ExitIndex(rRep.room.index);
                 if (exitToRoom > -1)
                 {
-                    BrainPlugin.Log(rRep.DesireToGoBack);
-                    if (rRep.DesireToGoBack > highestDesirability)
+                    float desireToGoBack = rRep.DesireToGoBack(treatTracker.Utility() > 0);
+                    if (closestToShelter == rRep) desireToGoBack *= 1f + rainTracker.Utility();
+
+                    if (desireToGoBack > desire)
                     {
                         mostDesirable = rRep;
-                        highestDesirability = rRep.DesireToGoBack;
+                        desire = desireToGoBack;
                         exitToBestRoom = exitToRoom;
                     }
                 }
@@ -325,7 +344,7 @@ namespace SlugBrain.GameClasses
 
         public Behavior behavior;
 
-        public List<RoomRepresentation> roomsVisited;
+        public List<RoomRepresentation> roomMemory;
 
         DebugNode threatNode;
         DebugNode overallDestinationNode;

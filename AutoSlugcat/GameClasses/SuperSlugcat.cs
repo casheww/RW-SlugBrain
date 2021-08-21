@@ -267,7 +267,8 @@ namespace SlugBrain.GameClasses
                 tileDebugLabel.text = $"{mPos}\n" +
                     $"{tPos}\n" +
                     $"terrain:{room.GetTile(tPos).Terrain}\n" +
-                    $"slope:{room.IdentifySlope(tPos)}";
+                    $"slope:{room.IdentifySlope(tPos)}\n" +
+                    $"aitile:{AI.pathFinder.AITileAtWorldCoordinate(new WorldCoordinate(room.abstractRoom.index, tPos.x, tPos.y, -1)).acc}";
             }
             else 
             {

@@ -2,7 +2,7 @@
 
 namespace SlugBrain.GameClasses
 {
-    class ShelterFinder : AIModule
+    class ShelterFinder : SlugcatAIModule
     {
         public ShelterFinder(ArtificialIntelligence AI) : base(AI) { }
 
@@ -10,10 +10,11 @@ namespace SlugBrain.GameClasses
         {
             base.NewRoom(room);
 
-            int i = GetExitToClosestShelter(out float dist);
+            int i = GetExitToClosestShelter(AI.creature.Room, out float dist);
             if (i > -1)
             {
                 exitToShelter = i;
+                DistanceToShelter = dist;
                 BrainPlugin.Log($"exit to closest shelter : {exitToShelter}\n\t\ttotal distance to shelter : {dist}");
             }
             else
@@ -40,7 +41,7 @@ namespace SlugBrain.GameClasses
             }
         }
 
-        public int GetExitToClosestShelter(out float shortestDistToClosestShelter)
+        public int GetExitToClosestShelter(AbstractRoom room, out float shortestDistToClosestShelter)
         {
             int exitClosestToAnyShelter = -1;
             shortestDistToClosestShelter = float.PositiveInfinity;
@@ -50,9 +51,9 @@ namespace SlugBrain.GameClasses
                 int exitClosestToThisShelter = -1;
                 float shortestDist = float.PositiveInfinity;
 
-                for (int connIndex = 0; connIndex < AI.creature.Room.connections.Length; connIndex++)
+                for (int connIndex = 0; connIndex < room.connections.Length; connIndex++)
                 {
-                    WorldCoordinate coord = new WorldCoordinate(AI.creature.Room.index, -1, -1, connIndex);
+                    WorldCoordinate coord = new WorldCoordinate(room.index, -1, -1, connIndex);
                     float dist = AI.creature.world.overseersWorldAI.shelterFinder.DistanceToShelter(shelterInt, coord);
 
                     if (dist < shortestDist)
@@ -68,7 +69,6 @@ namespace SlugBrain.GameClasses
                     shortestDistToClosestShelter = shortestDist;
                 }
             }
-
             return exitClosestToAnyShelter;
         }
 
@@ -83,9 +83,16 @@ namespace SlugBrain.GameClasses
             }
         }
 
+        public override void UpdateRoomRepresentation(RoomRepresentation rRep)
+        {
+            GetExitToClosestShelter(rRep.room, out float dist);
+            rRep.distToShelter = dist;
+        }
+
 
         int exitToShelter;
         public WorldCoordinate ExitToShelterCoords { get; private set; }
+        public float DistanceToShelter { get; private set; }
 
         DebugNode debugNode;
 

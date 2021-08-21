@@ -83,7 +83,8 @@ namespace TextManager
                 existingIndex = texts.Count - 1;
             }
 
-            texts[existingIndex].label.text = $"{key} : {obj}";
+            string txt = obj == null ? "null" : obj.ToString();
+            texts[existingIndex].label.text = $"{key} : {txt}";
             texts[existingIndex].label.color = color;
         }
 
