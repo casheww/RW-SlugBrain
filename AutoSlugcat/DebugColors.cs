@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SlugBrain
 {
@@ -11,7 +12,7 @@ namespace SlugBrain
             Destination,
             Food,
             Threat,
-            Shelter
+            Shelter,
         }
 
         public static Color GetColor(Subject subject)
@@ -20,9 +21,27 @@ namespace SlugBrain
             return (0 <= i && i < _colors.Length) ? _colors[i] : Color.white;
         }
 
+        public static Color GetColor(AIModule module)
+        {
+            if (module is GameClasses.TreatTracker)
+            {
+                return GetColor(Subject.Food);
+            }
+            if (module is RainTracker)
+            {
+                return GetColor(Subject.Shelter);
+            }
+            if (module is ThreatTracker)
+            {
+                return GetColor(Subject.Threat);
+            }
+
+            return Color.white;
+        }
+
         private static readonly Color[] _colors = new Color[]
         {
-            Color.gray,
+            Color.grey,
             new Color(0.1f, 0.6f, 0.2f),
             new Color(0.3f, 0.9f, 0.35f),
             new Color(0.4f, 0.4f, 0.9f),

@@ -33,11 +33,13 @@ namespace SlugBrain.GameClasses
 
             if (!leftShelterThisCycle && !room.abstractRoom.shelter) leftShelterThisCycle = true;
 
+            // want to sleep if rain is coming
             if (AI.rainTracker.Utility() > 0.7f)
             {
                 wantToSleep = true;
             }
 
+            // hibernation or desire to leave shelter
             if (room.abstractRoom.shelter)
             {
                 if (wantToSleep)
@@ -137,10 +139,10 @@ namespace SlugBrain.GameClasses
             LastMovement = movement;
 
             if (destNode == null) destNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.MoveTo));
-            destNode.UpdatePosition(room, movement.DestTile);
+            destNode.SetPosition(room, movement.DestTile);
 
             if (currentNode == null) currentNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Position));
-            currentNode.UpdatePosition(room, movement.StartTile);
+            currentNode.SetPosition(room, movement.StartTile);
 
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
             //Vector2 destDir = Custom.DirVec(movement.StartTile.ToVector2(), AI.Destination.Tile.ToVector2());
@@ -165,12 +167,13 @@ namespace SlugBrain.GameClasses
             }
             else
             {
-                bool onBeam = CheckBeamStatus(movement.StartTile, out bool vBeam, out bool hBeam);
+                CheckBeamStatus(movement.StartTile, out bool vBeam, out bool hBeam);
+                bool onBeam = bodyMode == BodyModeIndex.ClimbingOnBeam;
 
                 if (onBeam && vBeam && Mathf.Abs(dir.x) > 0)
                 {
                     BrainPlugin.Log("jumping off vertical beam");
-                    x = Math.Sign(dir.x);
+                    x = dir.x < -0.6f ? -1 : (dir.x > 0.6f ? 1 : 0);
                     y = 0;
                     holdJmp = true;
                 }

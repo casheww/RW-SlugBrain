@@ -17,7 +17,6 @@ namespace SlugBrain
             Log($"SlugBrain started! casheww was ere \t{DateTime.Now}\n");
 
             InputSpoofer = new InputSpoofer();
-
             TextManager = new TextManager.DebugTextManager();
 
             Hooks.Enable();

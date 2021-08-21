@@ -26,7 +26,7 @@ namespace TextManager
                 }
             }
 
-            List<int> indexesToRemove = new List<int>();
+            List<TextEntry> textsToRemove = new List<TextEntry>();
 
             float yOffset = 0;
             float leftMargin = margin;
@@ -35,7 +35,7 @@ namespace TextManager
             {
                 TextEntry t = texts[i];
 
-                if (t.deleteMe) indexesToRemove.Add(i);
+                if (t.deleteMe) textsToRemove.Add(texts[i]);
                 else
                 {
                     if (!t.addedToStage)
@@ -56,10 +56,10 @@ namespace TextManager
                 }
             }
 
-            foreach (int i in indexesToRemove)
+            foreach (TextEntry t in textsToRemove)
             {
-                Futile.stage.RemoveChild(texts[i].label);
-                texts.RemoveAt(i);
+                Futile.stage.RemoveChild(t.label);
+                texts.Remove(t);
             }
         }
 

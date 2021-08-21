@@ -12,7 +12,7 @@ namespace SlugBrain
             this.big = big;
         }
 
-        public void UpdatePosition(Room room, IntVector2 pos)
+        public void SetPosition(Room room, IntVector2 pos)
         {
             if (this.room != room && room != null)
             {
@@ -35,6 +35,8 @@ namespace SlugBrain
 
         public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
         {
+            if (room == null) return;
+
             sLeaser.sprites[0].isVisible = true;
             sLeaser.sprites[0].SetPosition(room.MiddleOfTile(tileCoords) - camPos);
             base.DrawSprites(sLeaser, rCam, timeStacker, camPos);

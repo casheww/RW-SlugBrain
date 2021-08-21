@@ -54,6 +54,7 @@
     <Compile Include="DebugColors.cs" />
     <Compile Include="DebugNode.cs" />
     <Compile Include="DebugTextManager.cs" />
+    <Compile Include="GameClasses\RoomRepresentation.cs" />
     <Compile Include="GameClasses\JumpModule.cs" />
     <Compile Include="GameClasses\TreatTracker.cs" />
     <Compile Include="GameClasses\ShelterFinder.cs" />

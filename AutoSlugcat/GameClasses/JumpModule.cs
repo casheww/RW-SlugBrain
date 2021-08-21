@@ -29,7 +29,6 @@ namespace SlugBrain.GameClasses
             for (int i = 0; i < Custom.fourDirections.Length; i++)
             {
                 if (CheckIsJumpable(aimap, dest + Custom.fourDirections[i])) return true;
-                if (CheckIsJumpable(aimap, dest + Custom.fourDirections[i] * 2)) return true;
             }
             for (int i = 0; i < Custom.diagonals.Length; i++)
             {

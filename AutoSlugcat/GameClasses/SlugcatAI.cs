@@ -1,4 +1,6 @@
 ﻿using RWCustom;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SlugBrain.GameClasses
@@ -26,6 +28,7 @@ namespace SlugBrain.GameClasses
             AddModule(treatTracker);
             shelterFinder = new ShelterFinder(this);
             AddModule(shelterFinder);
+            jumpModule = new JumpModule(this);      // not a real AI module
 
             // comparer
             AddModule(new UtilityComparer(this));
@@ -35,25 +38,30 @@ namespace SlugBrain.GameClasses
             utilityComparer.AddComparedModule(stuckTracker, null, 1f, 1.1f);
 
             submergedLastUpdate = false;
-
-            jumpModule = new JumpModule(this);
-
-            behavior = Behavior.FollowPath;
+            behavior = Behavior.Idle;
+            roomsVisited = new List<RoomRepresentation>();
 
             BrainPlugin.Log("SlugcatAI ctor done");
         }
 
         public override void Update()
         {
+            // affects visibility of disco mode pathfinder on next room transition
             if (Input.GetKeyDown(KeyCode.Home)) pathFinder.visualize = !pathFinder.visualize;
 
             base.Update();
 
             if (creature.Room.realizedRoom == null || creature.realizedCreature == null) return;
 
+            foreach (Room room in creature.world.activeRooms)
+            {
+                UpdateRoomRepresentation(room);
+            }
+            BrainPlugin.TextManager.Write("room memory", roomsVisited.Count);
+            
             DrawDebugNodes();
 
-
+            // switch pathfinder when entering/exiting water. Water pathfinder just seems to float... perhaps I'm missing some method call?
             bool submerged = creature.Room.realizedRoom.PointSubmerged(creature.realizedCreature.bodyChunks[1].pos);
             if (submerged != submergedLastUpdate)
             {
@@ -79,15 +87,20 @@ namespace SlugBrain.GameClasses
 
             DoTextDebugs(urge);
 
-            if (urge is ThreatTracker) behavior = Behavior.Flee;
+            if (urge.Utility() == 0) behavior = Behavior.Idle;
+            else if (urge is ThreatTracker) behavior = Behavior.Flee;
             else if (urge is RainTracker) behavior = Behavior.EscapeRain;
-            else if (urge is TreatTracker) behavior = Behavior.Hunt;
+            else if (urge is TreatTracker) behavior = Behavior.FindFood;
             else if (urge is StuckTracker) behavior = Behavior.GetUnstuck;
 
+            
             WorldCoordinate destination = creature.pos;
+
+            // get destination from relevant module
             switch (behavior)
             {
-                case Behavior.FollowPath:
+                case Behavior.Idle:
+                    destination = new WorldCoordinate(-1, -1, -1, -1);
                     break;
 
                 case Behavior.Flee:
@@ -95,13 +108,12 @@ namespace SlugBrain.GameClasses
                     destination = fleeTo;
                     break;
 
-                case Behavior.Hunt:
+                case Behavior.FindFood:
                     destination = treatTracker.GetMostAttractiveFoodDestination(out _);
                     break;
 
                 case Behavior.EscapeRain:
-                    WorldCoordinate denPos = shelterFinder.GetShelterTarget();
-                    destination = denPos;
+                    destination = shelterFinder.GetShelterTarget();
                     break;
 
                 case Behavior.GetUnstuck:
@@ -109,8 +121,19 @@ namespace SlugBrain.GameClasses
                     break;
             }
 
-            if (destination.room == -1) return;
+            // explore if the module has no destination in mind
+            if (destination.room == -1)     // screaming
+            {
+                destination = Explore();
+            }
 
+            if (destination.room == -1)     // more screaming
+            {
+                BrainPlugin.TextManager.Write("uh oh", "can't find rooms to explore what aaaaaaa ?!?!?!?!", Color.red, 40);
+                return;
+            }
+
+            // is this working?
             if (Destination != destination)
             {
                 BrainPlugin.Log($"slugcat behavior : {urge} {behavior} {urgeStrength}\n" +
@@ -125,6 +148,63 @@ namespace SlugBrain.GameClasses
             base.SetDestination(dest);
             creature.abstractAI.SetDestination(dest);
             Destination = dest;
+        }
+
+        public void UpdateRoomRepresentation(Room room)
+        {
+            RoomRepresentation thisRoomRep = null;
+
+            // check if this room has been visited before
+            foreach (RoomRepresentation rRep in roomsVisited)
+            {
+                if (rRep.room == room.abstractRoom)
+                {
+                    thisRoomRep = rRep;
+                    break;
+                }
+            }
+
+            if (thisRoomRep == null)
+            {
+                thisRoomRep = new RoomRepresentation(room.abstractRoom);
+                roomsVisited.Add(thisRoomRep);
+            }
+
+            thisRoomRep.food = treatTracker.FoodsInRoom(room.abstractRoom, true).Count;
+            thisRoomRep.threats =
+                threatTracker.threatCreatures.Where(t => t.creature.representedCreature.Room == room.abstractRoom).ToArray().Length;
+
+        }
+
+        public WorldCoordinate Explore()
+        {
+            RoomRepresentation mostDesirable = null;
+            float highestDesirability = float.MinValue;
+            int exitToBestRoom = -1;
+
+            foreach (RoomRepresentation rRep in roomsVisited)
+            {
+                if (rRep.room == creature.Room) continue;
+
+                // use only connected rooms
+                int exitToRoom = creature.Room.ExitIndex(rRep.room.index);
+                if (exitToRoom > -1)
+                {
+                    BrainPlugin.Log(rRep.DesireToGoBack);
+                    if (rRep.DesireToGoBack > highestDesirability)
+                    {
+                        mostDesirable = rRep;
+                        highestDesirability = rRep.DesireToGoBack;
+                        exitToBestRoom = exitToRoom;
+                    }
+                }
+            }
+
+            if (mostDesirable != null)
+                return creature.Room.realizedRoom.LocalCoordinateOfNode(exitToBestRoom);
+            else
+                return new WorldCoordinate(-1, -1, -1, -1);
+
         }
 
         AIModule IUseARelationshipTracker.ModuleToTrackRelationship(CreatureTemplate.Relationship relationship)
@@ -178,13 +258,12 @@ namespace SlugBrain.GameClasses
                 {
                     dist = Custom.WorldCoordFloatDist(from, abstractFrom.realizedRoom.LocalCoordinateOfNode(exitToRoom));
                 }
-                else dist = float.PositiveInfinity;
+                else dist = 500f;
             }
             else dist = Custom.WorldCoordFloatDist(from, to);
 
             return dist;
         }
-
 
 
         void DrawDebugNodes()
@@ -193,23 +272,24 @@ namespace SlugBrain.GameClasses
             if (room == null) return;
 
             treatTracker.DrawDebugNodes();
+            shelterFinder.DrawDebugNode();
 
-
-            if (shelterNode == null) shelterNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Shelter));
-            shelterNode.UpdatePosition(room, shelterFinder.ExitTile);
 
             if (threatNode == null) threatNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Threat));
             if (threatTracker.mostThreateningCreature != null)
-                threatNode.UpdatePosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
+                threatNode.SetPosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
 
             if (overallDestinationNode == null) overallDestinationNode =
                     new DebugNode(DebugColors.GetColor(DebugColors.Subject.Destination), true);
             if (Destination.room == room.abstractRoom.index)
             {
                 IntVector2 t = DestinationTile;
-                overallDestinationNode.UpdatePosition(room, t);
+                overallDestinationNode.SetPosition(room, t);
             }
-            else overallDestinationNode.UpdatePosition(room, new IntVector2(1, room.TileHeight - 1));
+            else
+            {
+                overallDestinationNode.SetPosition(room, new IntVector2(1, 1));
+            }
         }
 
         void DoTextDebugs(AIModule highestModule)
@@ -217,17 +297,18 @@ namespace SlugBrain.GameClasses
             BrainPlugin.TextManager.Write("pos   ", creature.pos);
             BrainPlugin.TextManager.Write("dest  ", Destination);
             BrainPlugin.TextManager.Write("mvmnt ", slugcat.LastMovement);
-            BrainPlugin.TextManager.Write("top module", $"{highestModule} {highestModule.Utility()}");
             BrainPlugin.TextManager.Write("active pathfinder", pathFinder);
-        }
 
+            Color moduleColor = DebugColors.GetColor(highestModule);
+            BrainPlugin.TextManager.Write("top module", $"{highestModule} {highestModule.Utility()}", moduleColor);
+        }
 
 
         public enum Behavior
         {
-            FollowPath,
+            Idle,
             Flee,
-            Hunt,
+            FindFood,
             EscapeRain,
             GetUnstuck
         }
@@ -244,7 +325,8 @@ namespace SlugBrain.GameClasses
 
         public Behavior behavior;
 
-        DebugNode shelterNode;
+        public List<RoomRepresentation> roomsVisited;
+
         DebugNode threatNode;
         DebugNode overallDestinationNode;
 

@@ -34,7 +34,7 @@ namespace SlugBrain.GameClasses
             }
 
             float foodScore = 1 - (player.CurrentFood / player.MaxFoodInStomach);
-            return Mathf.Clamp(foodScore, 0f, 0.55f);
+            return Mathf.Clamp(foodScore, 0f, 0.5f);
         }
 
         public override void NewRoom(Room room)
@@ -82,7 +82,9 @@ namespace SlugBrain.GameClasses
                 }
             }
 
-            BrainPlugin.TextManager.Write("treats", $"refreshed - {FoodsInRoom.Count} in room ({foods.Count} total)", foodColor, 20);
+            BrainPlugin.TextManager.Write(
+                "treats", $"refreshed - {FoodsInRoom(AI.creature.Room, false).Count} in room ({foods.Count} total)",
+                foodColor, 20);
         }
 
         public void AddFood(AbstractPhysicalObject obj)
@@ -184,7 +186,7 @@ namespace SlugBrain.GameClasses
             }
             else
             {
-                BrainPlugin.TextManager.Write("treats", "no attractive food :(", foodColor, 60);
+                BrainPlugin.TextManager.Write("treats", "no attractive food :(", foodColor, 30);
                 fRep = null;
                 return new WorldCoordinate(-1, -1, -1, -1);
             }
@@ -223,11 +225,19 @@ namespace SlugBrain.GameClasses
         readonly float discourageDist;
         readonly Color foodColor;
 
-        AImap AImap => AI.creature.realizedCreature.room?.aimap;
+        public List<FoodRepresentation> FoodsInRoom(AbstractRoom room, bool shouldBeAccessible)
+        {
+            List<FoodRepresentation> foodsInRoom = foods.Where(f => f.abstractObject.Room == room).ToList();
 
-        List<FoodRepresentation> FoodsInRoom => foods.Where(f => f.abstractObject.Room == AI.creature.Room).ToList();
+            if (shouldBeAccessible)
+            {
+                foodsInRoom = foodsInRoom.Where(f => f.Attractiveness >= 0).ToList();
+            }
 
-        
+            return foodsInRoom;
+        }
+            
+
         public class FoodRepresentation
         {
             public FoodRepresentation(TreatTracker tracker, AbstractPhysicalObject obj)
@@ -242,9 +252,10 @@ namespace SlugBrain.GameClasses
             {
                 get
                 {
-                    if (RealizedObject == null) return -1f;
+                    if (RealizedObject == null || RealizedObject.room == null) return -1f;
 
-                    if (!(tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(tracker.AImap, abstractObject.pos.Tile))
+                    if (!RealizedObject.room.readyForAI ||
+                        !(tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(RealizedObject.room.aimap, abstractObject.pos.Tile))
                     {
                         return -1f;
                     }
@@ -263,9 +274,9 @@ namespace SlugBrain.GameClasses
 
             public void DrawDebugNode()
             {
-                if (debugNode != null && RealizedObject != null &&
+                if (debugNode != null && RealizedObject != null && RealizedObject.room != null &&
                     RealizedObject.room == tracker.AI.creature.realizedCreature.room)
-                    debugNode.UpdatePosition(RealizedObject.room, abstractObject.pos.Tile);
+                    debugNode.SetPosition(RealizedObject.room, abstractObject.pos.Tile);
                 else
                     CleanDebugNode();
             }

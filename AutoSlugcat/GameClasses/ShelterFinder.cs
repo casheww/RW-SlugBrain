@@ -21,7 +21,7 @@ namespace SlugBrain.GameClasses
                 exitToShelter = 0;
                 BrainPlugin.Log($"couldn't find any shelters!");
             }
-            
+
         }
 
         public WorldCoordinate GetShelterTarget()
@@ -33,7 +33,11 @@ namespace SlugBrain.GameClasses
                 return new WorldCoordinate(AI.creature.Room.index, 25, 15, -1);
             }
             // focus the exit node that takes us closest to the nearest shelter
-            else return new WorldCoordinate(AI.creature.Room.index, -1, -1, exitToShelter);
+            else
+            {
+                ExitToShelterCoords = AI.creature.Room.realizedRoom.LocalCoordinateOfNode(exitToShelter);
+                return ExitToShelterCoords;
+            }
         }
 
         public int GetExitToClosestShelter(out float shortestDistToClosestShelter)
@@ -68,10 +72,22 @@ namespace SlugBrain.GameClasses
             return exitClosestToAnyShelter;
         }
 
+        public void DrawDebugNode()
+        {
+            if (AI.creature.Room.index == ExitToShelterCoords.room)
+            {
+                if (debugNode == null) debugNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Shelter));
+
+                BrainPlugin.Log($"DFSKJKFSDJJKFSD : {ExitToShelterCoords.Tile}");
+                debugNode.SetPosition(AI.creature.realizedCreature.room, ExitToShelterCoords.Tile);
+            }
+        }
+
 
         int exitToShelter;
+        public WorldCoordinate ExitToShelterCoords { get; private set; }
 
-        public IntVector2 ExitTile => AI.creature.Room.realizedRoom.LocalCoordinateOfNode(exitToShelter).Tile;
+        DebugNode debugNode;
 
     }
 }
