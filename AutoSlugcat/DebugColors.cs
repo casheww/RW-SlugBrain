@@ -1,4 +1,5 @@
 ﻿using System;
+using SlugBrain.GameClasses;
 using UnityEngine;
 
 namespace SlugBrain
@@ -23,20 +24,17 @@ namespace SlugBrain
 
         public static Color GetColor(AIModule module)
         {
-            if (module is GameClasses.TreatTracker)
+            switch (module)
             {
-                return GetColor(Subject.Food);
+                case TreatTracker _:
+                    return GetColor(Subject.Food);
+                case RainTracker _:
+                    return GetColor(Subject.Shelter);
+                case ThreatTracker _:
+                    return GetColor(Subject.Threat);
+                default:
+                    return Color.white;
             }
-            if (module is RainTracker)
-            {
-                return GetColor(Subject.Shelter);
-            }
-            if (module is ThreatTracker)
-            {
-                return GetColor(Subject.Threat);
-            }
-
-            return Color.white;
         }
 
         private static readonly Color[] _colors = new Color[]

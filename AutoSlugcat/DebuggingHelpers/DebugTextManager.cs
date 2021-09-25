@@ -1,20 +1,24 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-namespace TextManager
+namespace SlugBrain.DebuggingHelpers
 {
-    class DebugTextManager
+    public class DebugTextManager
     {
         public DebugTextManager()
         {
-            texts = new List<TextEntry>();
+            _texts = new List<TextEntry>();
         }
+
+        public bool enabled = true;
 
         public void Update()
         {
+            if (!enabled) return;
+
             if (Futile.stage == null) return;
 
-            foreach (TextEntry t in texts)
+            foreach (TextEntry t in _texts)
             {
                 if (t.frames < int.MaxValue)
                 {
@@ -31,16 +35,17 @@ namespace TextManager
             float yOffset = 0;
             float leftMargin = margin;
 
-            for (int i = 0; i < texts.Count; i++)
+            for (int i = 0; i < _texts.Count; i++)
             {
-                TextEntry t = texts[i];
+                TextEntry t = _texts[i];
 
-                if (t.deleteMe) textsToRemove.Add(texts[i]);
+                if (t.deleteMe) textsToRemove.Add(_texts[i]);
                 else
                 {
                     if (!t.addedToStage)
                     {
                         Futile.stage.AddChild(t.label);
+                        t.addedToStage = true;
                     }
 
                     t.label.MoveToFront();
@@ -59,18 +64,20 @@ namespace TextManager
             foreach (TextEntry t in textsToRemove)
             {
                 Futile.stage.RemoveChild(t.label);
-                texts.Remove(t);
+                _texts.Remove(t);
             }
         }
 
         public void Write(string key, object obj, int frames = int.MaxValue) { Write(key, obj, new Color(0.9f, 0.9f, 1f), frames); }
         public void Write(string key, object obj, Color color, int frames = int.MaxValue)
         {
+            if (!enabled) return;
+            
             int existingIndex = -1;
 
-            for (int i = 0; i < texts.Count; i++)
+            for (int i = 0; i < _texts.Count; i++)
             {
-                if (texts[i].key == key)
+                if (_texts[i].key == key)
                 {
                     existingIndex = i;
                     break;
@@ -79,42 +86,44 @@ namespace TextManager
 
             if (existingIndex < 0)
             {
-                texts.Add(new TextEntry(key, color, frames));
-                existingIndex = texts.Count - 1;
+                _texts.Add(new TextEntry(key, color, frames));
+                existingIndex = _texts.Count - 1;
             }
 
             string txt = obj == null ? "null" : obj.ToString();
-            texts[existingIndex].label.text = $"{key} : {txt}";
-            texts[existingIndex].label.color = color;
+            _texts[existingIndex].label.text = $"{key} : {txt}";
+            _texts[existingIndex].label.color = color;
         }
 
         public void UnWrite(string key)
         {
+            if (!enabled) return;
+            
             int existingIndex = -1;
 
-            for (int i = 0; i < texts.Count; i++)
+            for (int i = 0; i < _texts.Count; i++)
             {
-                if (texts[i].key == key)
+                if (_texts[i].key == key)
                 {
                     existingIndex = i;
                     break;
                 }
             }
 
-            texts[existingIndex].deleteMe = true;
+            _texts[existingIndex].deleteMe = true;
         }
 
         public void Clear()
         {
-            foreach (TextEntry t in texts)
+            foreach (TextEntry t in _texts)
             {
                 t.deleteMe = true;
             }
         }
 
-        readonly List<TextEntry> texts;
+        private readonly List<TextEntry> _texts;
 
-        const float margin = 15;
+        private const float margin = 15;
 
 
         class TextEntry
