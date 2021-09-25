@@ -52,8 +52,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DebugColors.cs" />
-    <Compile Include="DebugNode.cs" />
-    <Compile Include="DebugTextManager.cs" />
+    <Compile Include="DebuggingHelpers\DebugNodeManager.cs" />
+    <Compile Include="GameClasses\AStarPathfinder.cs" />
     <Compile Include="GameClasses\RoomRepresentation.cs" />
     <Compile Include="GameClasses\JumpModule.cs" />
     <Compile Include="GameClasses\SlugcatAIModule.cs" />
@@ -61,11 +61,11 @@
     <Compile Include="GameClasses\ShelterFinder.cs" />
     <Compile Include="InputSpoofer.cs" />
     <Compile Include="GameClasses\SlugcatAI.cs" />
-    <Compile Include="GameClasses\SlugcatPathFinder.cs" />
     <Compile Include="GameClasses\SuperSlugcat.cs" />
     <Compile Include="Hooks.cs" />
     <Compile Include="BrainPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="DebuggingHelpers\DebugTextManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />

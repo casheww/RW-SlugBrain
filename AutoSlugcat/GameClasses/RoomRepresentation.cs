@@ -2,7 +2,7 @@
 
 namespace SlugBrain.GameClasses
 {
-    class RoomRepresentation
+    public class RoomRepresentation
     {
         public RoomRepresentation(AbstractRoom room)
         {
@@ -11,7 +11,7 @@ namespace SlugBrain.GameClasses
             threats = 0;
         }
 
-        public float DesireToGoBack(bool hungry)
+        public float Attractiveness(bool hungry)
         {
             float desire;
 
@@ -28,7 +28,7 @@ namespace SlugBrain.GameClasses
         public int threats;
         public float distToShelter;
 
-        const int threatLimit = 2;
+        private const int threatLimit = 2;
 
     }
 }

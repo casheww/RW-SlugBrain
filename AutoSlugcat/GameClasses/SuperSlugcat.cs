@@ -8,14 +8,16 @@ namespace SlugBrain.GameClasses
     {
         public SuperSlugcat(AbstractCreature absCreature, World world) : base(absCreature, world)
         {
-            lastInput = new InputPackage();
+            _lastInput = new InputPackage();
             wantToSleep = false;
-            stationaryCounter = 0;
-            preferedChunkIndex = 0;
-            leftShelterThisCycle = false;
-            tryingToGrabFood = false;
+            _stationaryCounter = 0;
+            _preferedChunkIndex = 0;
+            _leftShelterThisCycle = false;
+            _tryingToGrabFood = false;
 
             GrabRange = bodyChunks[0].rad / 20f + 2f;
+
+            SlugTemplate = Template;
         }
 
         public override void Update(bool eu)
@@ -29,12 +31,12 @@ namespace SlugBrain.GameClasses
 
         void Act()
         {
-            AI.Update();
+            ai.Update();
 
-            if (!leftShelterThisCycle && !room.abstractRoom.shelter) leftShelterThisCycle = true;
+            if (!_leftShelterThisCycle && !room.abstractRoom.shelter) _leftShelterThisCycle = true;
 
             // want to sleep if rain is coming
-            if (AI.rainTracker.Utility() > 0.7f)
+            if (ai.rainTracker.Utility() > 0.7f)
             {
                 wantToSleep = true;
             }
@@ -50,7 +52,7 @@ namespace SlugBrain.GameClasses
                 else
                 {
                     BrainPlugin.Log("trying to leave shelter");
-                    AI.SetDestination(new WorldCoordinate(room.abstractRoom.index, -1, -1, 0));
+                    ai.SetDestination(new WorldCoordinate(room.abstractRoom.index, -1, -1, 0));
                 }
             }
 
@@ -68,18 +70,18 @@ namespace SlugBrain.GameClasses
                 }
 
                 // grab nearby food
-                if (AI.treatTracker.CheckFoodProximity(coord, out TreatTracker.FoodRepresentation fRep)
-                    && !tryingToGrabFood)
+                if (ai.treatTracker.CheckFoodProximity(coord, out TreatTracker.FoodRepresentation fRep)
+                    && !_tryingToGrabFood)
                 {
                     BrainPlugin.Log($"grabbing {fRep.RealizedObject}");
                     GrabOrEat();
-                    tryingToGrabFood = true;
+                    _tryingToGrabFood = true;
                     return;
                 }
-                else if (tryingToGrabFood)
+                else if (_tryingToGrabFood)
                 {
                     BrainPlugin.InputSpoofer.ClearInputExceptBuffer();
-                    tryingToGrabFood = false;
+                    _tryingToGrabFood = false;
                 }
             }
 
@@ -89,45 +91,35 @@ namespace SlugBrain.GameClasses
         void FollowPath()
         {
             // prefered and backup start positions are used because one chunk may not be able to reach a valid path while the other can
-            WorldCoordinate preferedStart = room.GetWorldCoordinate(bodyChunks[preferedChunkIndex].pos);
+            WorldCoordinate preferedStart = room.GetWorldCoordinate(bodyChunks[_preferedChunkIndex].pos);
             WorldCoordinate backupStart = room.GetWorldCoordinate(bodyChunks[NotPreferedChunkIndex].pos);
 
-            if (lastPreferedStart == preferedStart) stationaryCounter++;
-            else stationaryCounter = 0;
+            if (_lastPreferedStart == preferedStart) _stationaryCounter++;
+            else _stationaryCounter = 0;
 
             bool gettingUnstuck = false;
 
-            if (stationaryCounter > 40 && !wantToSleep)
+            if (_stationaryCounter > 40 && !wantToSleep)
             {
-                preferedChunkIndex = NotPreferedChunkIndex;
-                stationaryCounter = 0;
-                BrainPlugin.Log($"swapped prefered start chunk index to {preferedChunkIndex}");
+                _preferedChunkIndex = NotPreferedChunkIndex;
+                _stationaryCounter = 0;
+                BrainPlugin.Log($"swapped prefered start chunk index to {_preferedChunkIndex}");
                 gettingUnstuck = true;
             }
 
             FollowPath(preferedStart, backupStart, gettingUnstuck);
 
-            lastPreferedStart = preferedStart;
+            _lastPreferedStart = preferedStart;
         }
 
         void FollowPath(WorldCoordinate preferedStart, WorldCoordinate backupStart, bool gettingUnstuck)
         {
             MovementConnection movement;
 
-            if (AI.pathFinder is StandardPather standardPather)
-            {
-                movement = standardPather.FollowPath(preferedStart, true);
+            movement = ai.aStarPathFinder.FollowPath(preferedStart);
 
-                if (movement == null) movement = standardPather.FollowPath(backupStart, true);
-            }
-            else if (AI.pathFinder is FishPather fishPather)
-            {
-                movement = fishPather.FollowPath(preferedStart, true);
-
-                if (movement == null) movement = fishPather.FollowPath(backupStart, true);
-            }
-            else return;
-
+            if (movement == null) movement = ai.aStarPathFinder.FollowPath(backupStart);
+            
             if (movement == null) movement =
                     new MovementConnection(MovementConnection.MovementType.Standard, preferedStart, preferedStart, 0);
 
@@ -138,11 +130,13 @@ namespace SlugBrain.GameClasses
         {
             LastMovement = movement;
 
-            if (destNode == null) destNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.MoveTo));
-            destNode.SetPosition(room, movement.DestTile);
+            BrainPlugin.NodeManager.Draw("moveDest",
+                DebugColors.GetColor(DebugColors.Subject.MoveTo),
+                room, movement.DestTile);
 
-            if (currentNode == null) currentNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Position));
-            currentNode.SetPosition(room, movement.StartTile);
+            BrainPlugin.NodeManager.Draw("currentTile",
+                DebugColors.GetColor(DebugColors.Subject.Position),
+                room, movement.StartTile);
 
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
             //Vector2 destDir = Custom.DirVec(movement.StartTile.ToVector2(), AI.Destination.Tile.ToVector2());
@@ -159,7 +153,7 @@ namespace SlugBrain.GameClasses
                 Room.SlopeDirection slope = room.IdentifySlope(movement.DestTile);
                 BrainPlugin.Log($"slope {slope}");
 
-                if (lastInput.x != 0) x = lastInput.x;
+                if (_lastInput.x != 0) x = _lastInput.x;
                 else x = dir.x < -0.5f ? -1 : (dir.x > 0.5f ? 1 : 0);
 
                 if (slope == Room.SlopeDirection.UpLeft || slope == Room.SlopeDirection.UpRight) y = 1;
@@ -192,7 +186,7 @@ namespace SlugBrain.GameClasses
             );
 
             BrainPlugin.InputSpoofer.PushNewInput(input);
-            lastInput = input;
+            _lastInput = input;
 
             if (movement.type == MovementConnection.MovementType.ReachUp ||
                 movement.type == MovementConnection.MovementType.DoubleReachUp ||
@@ -246,14 +240,14 @@ namespace SlugBrain.GameClasses
 
         void DebugTerrain()
         {
-            if (tileDebugLabel == null)
+            if (_tileDebugLabel == null)
             {
-                tileDebugLabel = new FLabel("font", "-")
+                _tileDebugLabel = new FLabel("font", "-")
                 {
                     color = new Color(0.4f, 0.6f, 0.8f),
                     alignment = FLabelAlignment.Left
                 };
-                Futile.stage.AddChild(tileDebugLabel);
+                Futile.stage.AddChild(_tileDebugLabel);
             }
 
             if (BrainPlugin.debugTerrainAndSlopes)
@@ -261,50 +255,50 @@ namespace SlugBrain.GameClasses
                 Vector2 mPos = new Vector2((int)Input.mousePosition.x, (int)Input.mousePosition.y);
                 IntVector2 tPos = room.GetTilePosition(mPos + room.game.cameras[0].pos);
 
-                tileDebugLabel.x = Input.mousePosition.x;
-                tileDebugLabel.y = Input.mousePosition.y;
+                _tileDebugLabel.x = Input.mousePosition.x;
+                _tileDebugLabel.y = Input.mousePosition.y;
 
-                tileDebugLabel.text = $"{mPos}\n" +
+                _tileDebugLabel.text = $"{mPos}\n" +
                     $"{tPos}\n" +
                     $"terrain:{room.GetTile(tPos).Terrain}\n" +
                     $"slope:{room.IdentifySlope(tPos)}\n" +
-                    $"aitile:{AI.pathFinder.AITileAtWorldCoordinate(new WorldCoordinate(room.abstractRoom.index, tPos.x, tPos.y, -1)).acc}";
+                    $"aitile:{ai.pathFinder.AITileAtWorldCoordinate(new WorldCoordinate(room.abstractRoom.index, tPos.x, tPos.y, -1)).acc}";
             }
             else 
             {
-                tileDebugLabel.text = "";
+                _tileDebugLabel.text = "";
             }
         }
 
 
-        public SlugcatAI AI;
-        DebugNode destNode;
-        DebugNode currentNode;
-        FLabel tileDebugLabel;
+        public SlugcatAI ai;
+        private FLabel _tileDebugLabel;
 
-        InputPackage lastInput;
+        private InputPackage _lastInput;
         public bool wantToSleep;
-        int stationaryCounter;
-        WorldCoordinate lastPreferedStart;
-        bool leftShelterThisCycle;
+        private int _stationaryCounter;
+        private WorldCoordinate _lastPreferedStart;
+        private bool _leftShelterThisCycle;
 
-        bool tryingToGrabFood;
+        private bool _tryingToGrabFood;
         
         public bool Safe
         {
             get
             {
-                return AI.threatTracker.Utility() < 0.7f &&
-                    (AI.rainTracker.Utility() < 0.8f || room.abstractRoom.shelter);
+                return ai.threatTracker.Utility() < 0.7f &&
+                    (ai.rainTracker.Utility() < 0.8f || room.abstractRoom.shelter);
             }
         }
 
-        int preferedChunkIndex;
-        int NotPreferedChunkIndex => preferedChunkIndex == 0 ? 1 : 0;
+        private int _preferedChunkIndex;
+        private int NotPreferedChunkIndex => _preferedChunkIndex == 0 ? 1 : 0;
 
         public MovementConnection LastMovement { get; private set; }
 
         public float GrabRange { get; private set; }
+
+        public static CreatureTemplate SlugTemplate { get; private set; }
 
     }
 }

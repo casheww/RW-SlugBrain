@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using BepInEx;
+using BepInEx.Logging;
 using UnityEngine;
 
 namespace SlugBrain
@@ -8,54 +9,58 @@ namespace SlugBrain
     [BepInPlugin("casheww.slugbrain", "SlugBrain", "0.1.0")]
     class BrainPlugin : BaseUnityPlugin
     {
-        void OnEnable()
+        private void OnEnable()
         {
             _Logger = Logger;
 
-            if (!Directory.Exists(logDir)) Directory.CreateDirectory(logDir);
-            File.WriteAllText(logPath, "");
+            if (!Directory.Exists(_logDir)) Directory.CreateDirectory(_logDir);
+            File.WriteAllText(_logPath, "");
             Log($"SlugBrain started! casheww was ere \t{DateTime.Now}\n");
 
             InputSpoofer = new InputSpoofer();
-            TextManager = new TextManager.DebugTextManager();
+            TextManager = new DebuggingHelpers.DebugTextManager();
+            NodeManager = new DebuggingHelpers.DebugNodeManager();
 
             Hooks.Enable();
         }
 
-        void OnDisable()
+        private void OnDisable()
         {
             Hooks.Disable();
         }
 
-        void Update()
+        private void Update()
         {
             TextManager.Update();
+            NodeManager.Update();
 
             if (Input.GetKeyDown(KeyCode.PageDown)) debugAI = !debugAI;
             if (Input.GetKeyDown(KeyCode.End)) debugTerrainAndSlopes = !debugTerrainAndSlopes;
         }
 
-        public static void Log(object message, bool bepLog = true, bool error = false)
+        public static void Log(object message, bool bepLog = true, bool warning = false, bool error = false)
         {
-            using (StreamWriter sw = File.AppendText(logPath))
+            using (StreamWriter sw = File.AppendText(_logPath))
             {
-                sw.WriteLine(message.ToString());
+                sw.WriteLine(message ?? "null");
             }
-            
+
             if (bepLog)
             {
-                _Logger.Log(error ? BepInEx.Logging.LogLevel.Error : BepInEx.Logging.LogLevel.Message, message);
+                LogLevel level = error ? LogLevel.Error : (warning ? LogLevel.Warning : LogLevel.Message);
+                _Logger.Log(level, message ?? "null");
             }
         }
-
+        
 
         public static BepInEx.Logging.ManualLogSource _Logger { get; private set; }
         public static InputSpoofer InputSpoofer { get; private set; }
 
-        public static TextManager.DebugTextManager TextManager { get; private set; }
+        public static DebuggingHelpers.DebugTextManager TextManager { get; private set; }
+        public static DebuggingHelpers.DebugNodeManager NodeManager { get; private set; }
 
-        const string logDir = "./Mods/SlugBrain";
-        const string logPath = logDir + "/log.txt";
+        private const string _logDir = "./Mods/SlugBrain";
+        private const string _logPath = _logDir + "/log.txt";
 
         public static bool debugAI = true;
         public static bool debugTerrainAndSlopes = false;

@@ -1,11 +1,11 @@
 ﻿
 namespace SlugBrain.GameClasses
 {
-    abstract class SlugcatAIModule : AIModule
+    public abstract class SlugcatAIModule : AIModule
     {
-        public SlugcatAIModule(ArtificialIntelligence AI) : base(AI) { }
+        protected SlugcatAIModule(ArtificialIntelligence ai) : base(ai) { }
 
-        abstract public void UpdateRoomRepresentation(RoomRepresentation rRep);
+        public abstract void UpdateRoomRepresentation(RoomRepresentation rRep);
 
     }
 }

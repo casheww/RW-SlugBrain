@@ -1,10 +1,9 @@
-﻿using RWCustom;
-
+﻿
 namespace SlugBrain.GameClasses
 {
     class ShelterFinder : SlugcatAIModule
     {
-        public ShelterFinder(ArtificialIntelligence AI) : base(AI) { }
+        public ShelterFinder(ArtificialIntelligence ai) : base(ai) { }
 
         public override void NewRoom(Room room)
         {
@@ -13,13 +12,13 @@ namespace SlugBrain.GameClasses
             int i = GetExitToClosestShelter(AI.creature.Room, out float dist);
             if (i > -1)
             {
-                exitToShelter = i;
+                _exitToShelter = i;
                 DistanceToShelter = dist;
-                BrainPlugin.Log($"exit to closest shelter : {exitToShelter}\n\t\ttotal distance to shelter : {dist}");
+                BrainPlugin.Log($"exit to closest shelter : {_exitToShelter}\n\t\ttotal distance to shelter : {dist}");
             }
             else
             {
-                exitToShelter = 0;
+                _exitToShelter = 0;
                 BrainPlugin.Log($"couldn't find any shelters!");
             }
 
@@ -36,7 +35,7 @@ namespace SlugBrain.GameClasses
             // focus the exit node that takes us closest to the nearest shelter
             else
             {
-                ExitToShelterCoords = AI.creature.Room.realizedRoom.LocalCoordinateOfNode(exitToShelter);
+                ExitToShelterCoords = AI.creature.Room.realizedRoom.LocalCoordinateOfNode(_exitToShelter);
                 return ExitToShelterCoords;
             }
         }
@@ -76,10 +75,11 @@ namespace SlugBrain.GameClasses
         {
             if (AI.creature.Room.index == ExitToShelterCoords.room)
             {
-                if (debugNode == null) debugNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Shelter));
+                BrainPlugin.NodeManager.Draw("shelter",
+                    DebugColors.GetColor(DebugColors.Subject.Shelter),
+                    AI.creature.Room.realizedRoom, ExitToShelterCoords.Tile);
 
                 BrainPlugin.Log($"DFSKJKFSDJJKFSD : {ExitToShelterCoords.Tile}");
-                debugNode.SetPosition(AI.creature.realizedCreature.room, ExitToShelterCoords.Tile);
             }
         }
 
@@ -90,11 +90,10 @@ namespace SlugBrain.GameClasses
         }
 
 
-        int exitToShelter;
+        private int _exitToShelter;
         public WorldCoordinate ExitToShelterCoords { get; private set; }
         public float DistanceToShelter { get; private set; }
-
-        DebugNode debugNode;
-
+        
+        
     }
 }

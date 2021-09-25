@@ -1,6 +1,7 @@
 ﻿using RWCustom;
 using System.Collections.Generic;
 using System.Linq;
+using BepInEx;
 using UnityEngine;
 
 namespace SlugBrain.GameClasses
@@ -10,16 +11,16 @@ namespace SlugBrain.GameClasses
     /// </summary>
     class TreatTracker : SlugcatAIModule        // not to be confused with the threat trackers :)))
     {
-        public TreatTracker(ArtificialIntelligence AI, int maxFoodCount, float persistance, float discourageDist)
-            : base(AI)
+        public TreatTracker(ArtificialIntelligence ai, int maxFoodCount, float persistance, float discourageDist)
+            : base(ai)
         {
-            foods = new List<FoodRepresentation>();
-            this.maxFoodCount = maxFoodCount;
-            this.persistance = persistance;
+            _foods = new List<FoodRepresentation>();
+            this._maxFoodCount = maxFoodCount;
+            this._persistance = persistance;
 
-            this.discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
+            this._discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
 
-            foodColor = DebugColors.GetColor(DebugColors.Subject.Food);
+            _foodColor = DebugColors.GetColor(DebugColors.Subject.Food);
         }
 
         public override float Utility()
@@ -47,21 +48,21 @@ namespace SlugBrain.GameClasses
         {
             base.Update();
 
-            if (refreshTimer >= 40)
+            if (_refreshTimer >= 40)
             {
-                refreshTimer = 0;
+                _refreshTimer = 0;
                 Refresh();
             }
-            else refreshTimer++;
+            else _refreshTimer++;
 
         }
-        int refreshTimer = 0;
+        private int _refreshTimer = 0;
 
         public void Refresh()
         {
             // remove undesirable foods
             List<FoodRepresentation> toRemove = new List<FoodRepresentation>();
-            foreach (FoodRepresentation fRep in foods)
+            foreach (FoodRepresentation fRep in _foods)
             {
                 if (fRep.RealizedObject == null || fRep.Attractiveness <= 0)
                     toRemove.Add(fRep);
@@ -83,14 +84,14 @@ namespace SlugBrain.GameClasses
             }
 
             BrainPlugin.TextManager.Write(
-                "treats", $"refreshed - {FoodsInRoom(AI.creature.Room, false).Count} in room ({foods.Count} total)",
-                foodColor, 20);
+                "treats", $"refreshed - {FoodsInRoom(AI.creature.Room, false).Count} in room ({_foods.Count} total)",
+                _foodColor, 20);
         }
 
         public void AddFood(AbstractPhysicalObject obj)
         {
             // don't add duplicates
-            foreach (FoodRepresentation fRep in foods)
+            foreach (FoodRepresentation fRep in _foods)
             {
                 if (fRep.abstractObject == obj) return;
             }
@@ -98,10 +99,10 @@ namespace SlugBrain.GameClasses
             FoodRepresentation newFood = new FoodRepresentation(this, obj);
             if (newFood.Attractiveness <= 0) return;    // don't add undesirables
 
-            foods.Add(newFood);
+            _foods.Add(newFood);
 
             // remove least desirable object if too many are stored
-            if (foods.Count > maxFoodCount)
+            if (_foods.Count > _maxFoodCount)
             {
                 RemoveFood(LeastAttractiveFood);
             }
@@ -114,11 +115,11 @@ namespace SlugBrain.GameClasses
         }
         public void RemoveFood(AbstractPhysicalObject obj)
         {
-            for (int i = 0; i < foods.Count; i++)
+            for (int i = 0; i < _foods.Count; i++)
             {
-                if (foods[i].abstractObject == obj)
+                if (_foods[i].abstractObject == obj)
                 {
-                    RemoveFood(foods[i]);
+                    RemoveFood(_foods[i]);
                     return;
                 }
             }
@@ -126,7 +127,7 @@ namespace SlugBrain.GameClasses
         public void RemoveFood(FoodRepresentation fRep)
         {
             fRep.CleanDebugNode();
-            foods.Remove(fRep);
+            _foods.Remove(fRep);
         }
 
         public FoodRepresentation LeastAttractiveFood
@@ -136,12 +137,12 @@ namespace SlugBrain.GameClasses
                 FoodRepresentation leastAttractive = null;
                 float minAttraction = float.PositiveInfinity;
 
-                for (int i = 0; i < foods.Count; i++)
+                for (int i = 0; i < _foods.Count; i++)
                 {
-                    float n = foods[i].Attractiveness;
+                    float n = _foods[i].Attractiveness;
                     if (n < minAttraction)
                     {
-                        leastAttractive = foods[i];
+                        leastAttractive = _foods[i];
                         minAttraction = n;
                     }
                 }
@@ -157,25 +158,25 @@ namespace SlugBrain.GameClasses
                 FoodRepresentation mostAttractive = null;
                 float maxAttraction = float.NegativeInfinity;
 
-                for (int i = 0; i < foods.Count; i++)
+                for (int i = 0; i < _foods.Count; i++)
                 {
-                    float n = foods[i].Attractiveness;
-                    if (foods[i] == lastMostAttractiveFood) n *= persistance;
+                    float n = _foods[i].Attractiveness;
+                    if (_foods[i] == _lastMostAttractiveFood) n *= _persistance;
 
                     if (n > maxAttraction)
                     {
-                        mostAttractive = foods[i];
+                        mostAttractive = _foods[i];
                         maxAttraction = n;
                     }
                 }
 
-                BrainPlugin.TextManager.Write("best food", mostAttractive, foodColor);
-                lastMostAttractiveFood = mostAttractive;
+                BrainPlugin.TextManager.Write("best food", mostAttractive, _foodColor);
+                _lastMostAttractiveFood = mostAttractive;
                 return mostAttractive;
             }
         }
 
-        FoodRepresentation lastMostAttractiveFood;
+        private FoodRepresentation _lastMostAttractiveFood;
 
         public WorldCoordinate GetMostAttractiveFoodDestination(out FoodRepresentation fRep)
         {
@@ -186,7 +187,7 @@ namespace SlugBrain.GameClasses
             }
             else
             {
-                BrainPlugin.TextManager.Write("treats", "no attractive food :(", foodColor, 30);
+                BrainPlugin.TextManager.Write("treats", "no attractive food :(", _foodColor, 30);
                 fRep = null;
                 return new WorldCoordinate(-1, -1, -1, -1);
             }
@@ -212,7 +213,7 @@ namespace SlugBrain.GameClasses
 
         public List<FoodRepresentation> FoodsInRoom(AbstractRoom room, bool shouldBeAccessible)
         {
-            List<FoodRepresentation> foodsInRoom = foods.Where(f => f.abstractObject.Room == room).ToList();
+            List<FoodRepresentation> foodsInRoom = _foods.Where(f => f.abstractObject.Room == room).ToList();
 
             if (shouldBeAccessible)
             {
@@ -224,7 +225,7 @@ namespace SlugBrain.GameClasses
 
         public void DrawDebugNodes()
         {
-            foreach (FoodRepresentation fRep in foods)
+            foreach (FoodRepresentation fRep in _foods)
             {
                 fRep.DrawDebugNode();
             }
@@ -236,21 +237,25 @@ namespace SlugBrain.GameClasses
         }
 
 
-        readonly List<FoodRepresentation> foods;
-        readonly int maxFoodCount;
-        readonly float persistance;
-        readonly float discourageDist;
-        readonly Color foodColor;
+        private readonly List<FoodRepresentation> _foods;
+        private readonly int _maxFoodCount;
+        private readonly float _persistance;
+        private readonly float _discourageDist;
+        private readonly Color _foodColor;
 
         
         public class FoodRepresentation
         {
             public FoodRepresentation(TreatTracker tracker, AbstractPhysicalObject obj)
             {
-                this.tracker = tracker;
+                _tracker = tracker;
                 abstractObject = obj;
 
-                debugNode = new DebugNode(tracker.foodColor);
+                _fSprite = new FSprite("pixel")
+                {
+                    color = DebugColors.GetColor(DebugColors.Subject.Food),
+                    scale = 5f
+                };
             }
 
             public float Attractiveness
@@ -260,13 +265,13 @@ namespace SlugBrain.GameClasses
                     if (RealizedObject == null || RealizedObject.room == null) return -1f;
 
                     if (!RealizedObject.room.readyForAI ||
-                        !(tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(RealizedObject.room.aimap, abstractObject.pos.Tile))
+                        !(_tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(RealizedObject.room.aimap, abstractObject.pos.Tile))
                     {
                         return -1f;
                     }
 
-                    float dist = (tracker.AI as SlugcatAI).EstimateTileDistance(tracker.AI.creature.pos, abstractObject.pos);
-                    float score = Mathf.Lerp(1f, 0f, dist / tracker.discourageDist);
+                    float dist = (_tracker.AI as SlugcatAI).EstimateTileDistance(_tracker.AI.creature.pos, abstractObject.pos);
+                    float score = Mathf.Lerp(1f, 0f, dist / _tracker._discourageDist);
 
                     if (RealizedObject is DangleFruit || RealizedObject is EggBugEgg)
                     {
@@ -279,31 +284,40 @@ namespace SlugBrain.GameClasses
 
             public void DrawDebugNode()
             {
-                if (debugNode != null && RealizedObject != null && RealizedObject.room != null &&
-                    RealizedObject.room == tracker.AI.creature.realizedCreature.room)
-                    debugNode.SetPosition(RealizedObject.room, abstractObject.pos.Tile);
+                if (RealizedObject?.room != null &&
+                    RealizedObject.room == _tracker.AI.creature.realizedCreature.room)
+                {
+                    if (_sprite == null)
+                    {
+                        _sprite = new DebugSprite(Vector2.one, _fSprite, RealizedObject.room);
+                        RealizedObject.room.AddObject(_sprite);
+                    }
+                    else
+                        _sprite.pos = new Vector2(abstractObject.pos.Tile.x * 20 + 10, abstractObject.pos.Tile.y * 20 + 10);
+                }
+                    
                 else
                     CleanDebugNode();
             }
 
             public void CleanDebugNode()
             {
-                if (debugNode == null) return;
-                debugNode.Destroy();
-                debugNode = null;
+                _sprite?.RemoveFromRoom();
             }
 
             public override string ToString()
             {
-                return $"{RealizedObject.GetType()}  {abstractObject.pos.Tile}";
+                string realStatus = RealizedObject != null ? "" : " (unrealised)";
+                return $"{abstractObject.type}{realStatus}  {abstractObject.pos}";
             }
 
 
-            readonly TreatTracker tracker;
+            private readonly TreatTracker _tracker;
             public readonly AbstractPhysicalObject abstractObject;
             public PhysicalObject RealizedObject => abstractObject?.realizedObject;
 
-            DebugNode debugNode;
+            private DebugSprite _sprite;
+            private FSprite _fSprite;
 
         }
 

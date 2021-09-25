@@ -1,4 +1,5 @@
 ﻿using SlugBrain.GameClasses;
+using System.Collections.Generic;
 using RWCustom;
 
 namespace SlugBrain
@@ -13,7 +14,8 @@ namespace SlugBrain
             On.Player.checkInput += Player_checkInput;
             On.Player.ObjectEaten += Player_ObjectEaten;
             On.AImap.IsConnectionAllowedForCreature += AImap_IsConnectionAllowedForCreature;
-            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate += AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate;
+            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate += AImap_TileAccessibleToCreature;
+            On.Room.ReadyForAI += Room_ReadyForAI;
         }
         public static void Disable()
         {
@@ -23,13 +25,14 @@ namespace SlugBrain
             On.Player.checkInput -= Player_checkInput;
             On.Player.ObjectEaten -= Player_ObjectEaten;
             On.AImap.IsConnectionAllowedForCreature -= AImap_IsConnectionAllowedForCreature;
-            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate -= AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate;
+            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate -= AImap_TileAccessibleToCreature;
+            On.Room.ReadyForAI -= Room_ReadyForAI;
         }
 
         private static void AbstractCreature_ctor(On.AbstractCreature.orig_ctor orig, AbstractCreature self,
-            World world, CreatureTemplate creatureTemplate, Creature realizedCreature, WorldCoordinate pos, EntityID ID)
+            World world, CreatureTemplate creatureTemplate, Creature realizedCreature, WorldCoordinate pos, EntityID id)
         {
-            orig(self, world, creatureTemplate, realizedCreature, pos, ID);
+            orig(self, world, creatureTemplate, realizedCreature, pos, id);
 
             // give slugcat a new abstract AI, regardless of its template's AI flag
             if (creatureTemplate.type == CreatureTemplate.Type.Slugcat)
@@ -78,10 +81,10 @@ namespace SlugBrain
         {
             orig(self, edible);
 
-            if (self is SuperSlugcat slugcat)
+            if (self is SuperSlugcat slugcat && edible is PhysicalObject obj)
             {
                 BrainPlugin.Log($"consumed {edible} - yummy yummy");
-                slugcat.AI.treatTracker.RegisterFoodEaten((edible as PhysicalObject).abstractPhysicalObject);
+                slugcat.ai.treatTracker.RegisterFoodEaten(obj.abstractPhysicalObject);
             }
         }
 
@@ -98,22 +101,27 @@ namespace SlugBrain
             return result;
         }
 
-        private static bool AImap_TileAccessibleToCreature_IntVector2_CreatureTemplate(
-            On.AImap.orig_TileAccessibleToCreature_IntVector2_CreatureTemplate orig, AImap self, IntVector2 pos, CreatureTemplate crit)
-        {
-            bool result = orig(self, pos, crit);
+        private static bool AImap_TileAccessibleToCreature(
+            On.AImap.orig_TileAccessibleToCreature_IntVector2_CreatureTemplate orig,
+            AImap self, IntVector2 pos, CreatureTemplate crit) =>
+                orig(self, pos, crit) || crit.type == CreatureTemplate.Type.Slugcat && tilesJumpable.Contains(pos);
+                // orig OR (slugcat AND in list of pre-calculated jumpable tiles)
 
-            if (crit.type == CreatureTemplate.Type.Slugcat && !isCheckingJump)
+        private static void Room_ReadyForAI(On.Room.orig_ReadyForAI orig, Room self)
+        {
+            orig(self);
+            
+            foreach (Room.Tile t in self.Tiles)
             {
-                isCheckingJump = true;
-                if (JumpModule.CheckIsJumpable(self, pos, crit)) result = true;
-                isCheckingJump = false;
+                IntVector2 pos = new IntVector2(t.X, t.Y);
+                tilesJumpable.AddRange(JumpModule.GetJumpableTiles(self, pos, self.aimap.getAItile(pos)));
             }
 
-            return result;
+            BrainPlugin.Log($"ReadyForAI - tiles that can be jumped to : {tilesJumpable.Count}");
         }
-        static bool isCheckingJump = false;     // prevent stack overflow
 
+
+        public static readonly List<IntVector2> tilesJumpable = new List<IntVector2>();
 
     }
 }

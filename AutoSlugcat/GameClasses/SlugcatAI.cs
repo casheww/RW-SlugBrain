@@ -1,6 +1,5 @@
 ﻿using RWCustom;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SlugBrain.GameClasses
@@ -9,25 +8,25 @@ namespace SlugBrain.GameClasses
     {
         public SlugcatAI(AbstractCreature creature, World world) : base(creature, world)
         {
-            slugcat = creature.realizedCreature as SuperSlugcat;
-            slugcat.AI = this;
+            _slugcat = creature.realizedCreature as SuperSlugcat;
+            _slugcat.ai = this;
 
             // vanilla AI modules
-            standardPathFinder = new StandardPather(this, world, creature);
-            swimmingPathFinder = new FishPather(this, world, creature);
-            AddModule(standardPathFinder);
-            AddModule(new StuckTracker(this, false, true));
-            stuckTracker.AddSubModule(new StuckTracker.GetUnstuckPosCalculator(stuckTracker));
+            //AddModule(new StuckTracker(this, false, true));
+            //stuckTracker.AddSubModule(new StuckTracker.GetUnstuckPosCalculator(stuckTracker));
             AddModule(new Tracker(this, 10, 20, -1, 0.35f, 5, 5, 10));
             AddModule(new RelationshipTracker(this, tracker));
             AddModule(new ThreatTracker(this, 10));
             AddModule(new RainTracker(this));
 
             // custom AI modules
+            aStarPathFinder = new AStarPathfinder(this, world, creature);
+            AddModule(aStarPathFinder);
             treatTracker = new TreatTracker(this, 8, 1f, 360f);
             AddModule(treatTracker);
             shelterFinder = new ShelterFinder(this);
             AddModule(shelterFinder);
+            
             jumpModule = new JumpModule(this);      // not a real AI module
 
             // comparer
@@ -35,20 +34,16 @@ namespace SlugBrain.GameClasses
             utilityComparer.AddComparedModule(threatTracker, null, 0.9f, 1.1f);
             utilityComparer.AddComparedModule(treatTracker, null, 0.85f, 1.1f);
             utilityComparer.AddComparedModule(rainTracker, null, 1f, 1.1f);
-            utilityComparer.AddComparedModule(stuckTracker, null, 1f, 1.1f);
+            //utilityComparer.AddComparedModule(stuckTracker, null, 1f, 1.1f);
 
-            submergedLastUpdate = false;
             behavior = Behavior.Idle;
-            roomMemory = new List<RoomRepresentation>();
+            _roomMemory = new List<RoomRepresentation>();
 
             BrainPlugin.Log("SlugcatAI ctor done");
         }
 
         public override void Update()
         {
-            // affects visibility of disco mode pathfinder on next room transition
-            if (Input.GetKeyDown(KeyCode.Home)) pathFinder.visualize = !pathFinder.visualize;
-
             base.Update();
 
             if (creature.Room.realizedRoom == null || creature.realizedCreature == null) return;
@@ -57,30 +52,9 @@ namespace SlugBrain.GameClasses
             {
                 UpdateRoomRepresentation(room);
             }
-            BrainPlugin.TextManager.Write("room memory", roomMemory.Count);
+            BrainPlugin.TextManager.Write("room memory", _roomMemory.Count);
             
             DrawDebugNodes();
-
-            // switch pathfinder when entering/exiting water. Water pathfinder just seems to float... perhaps I'm missing some method call?
-            bool submerged = creature.Room.realizedRoom.PointSubmerged(creature.realizedCreature.bodyChunks[1].pos);
-            if (submerged != submergedLastUpdate)
-            {
-                if (submerged)
-                {
-                    modules.Remove(standardPathFinder);
-                    AddModule(swimmingPathFinder);
-                }
-                else
-                {
-                    modules.Remove(swimmingPathFinder);
-                    AddModule(standardPathFinder);
-                }
-
-                pathFinder.Reset(creature.Room.realizedRoom);
-                BrainPlugin.Log($"path finder set to {pathFinder}");
-            }
-            submergedLastUpdate = submerged;
-
 
             AIModule urge = utilityComparer.HighestUtilityModule();
             float urgeStrength = utilityComparer.HighestUtility();
@@ -124,8 +98,8 @@ namespace SlugBrain.GameClasses
             // explore if the module has no destination in mind
             if (destination.room == -1)     // screaming
             {
-                destination = Explore(out float desire);
-                BrainPlugin.TextManager.Write("exploring", $"{destination} - {desire}", new Color(0.7f, 0.3f, 0.4f), 30);
+                destination = Explore(out float desire, out bool randomRoom);
+                BrainPlugin.TextManager.Write("exploring", $"{destination} : {desire} : random?{randomRoom}", new Color(0.7f, 0.3f, 0.4f), 50);
             }
 
             if (destination.room == -1)     // more screaming
@@ -141,14 +115,21 @@ namespace SlugBrain.GameClasses
                     $"destination : {destination}");
             }
 
-            SetDestination(destination);
+            if (aStarPathFinder.state != AStarPathfinder.State.CalculatingPath) SetDestination(destination);
         }
 
         public new void SetDestination(WorldCoordinate dest)
         {
             base.SetDestination(dest);
-            creature.abstractAI.SetDestination(dest);
+            aStarPathFinder.FindPath(dest);
             Destination = dest;
+        }
+
+        public override void NewRoom(Room room)
+        {
+            base.NewRoom(room);
+
+            _randomExitToExplore = null;
         }
 
         public void UpdateRoomRepresentation(Room room)
@@ -156,7 +137,7 @@ namespace SlugBrain.GameClasses
             RoomRepresentation thisRoomRep = null;
 
             // check if this room has been visited before
-            foreach (RoomRepresentation rRep in roomMemory)
+            foreach (RoomRepresentation rRep in _roomMemory)
             {
                 if (rRep.room == room.abstractRoom)
                 {
@@ -168,7 +149,7 @@ namespace SlugBrain.GameClasses
             if (thisRoomRep == null)
             {
                 thisRoomRep = new RoomRepresentation(room.abstractRoom);
-                roomMemory.Add(thisRoomRep);
+                _roomMemory.Add(thisRoomRep);
             }
 
             foreach (AIModule module in modules)
@@ -181,12 +162,12 @@ namespace SlugBrain.GameClasses
 
         }
 
-        public WorldCoordinate Explore(out float desire)
+        public WorldCoordinate Explore(out float desire, out bool randomRoom)
         {
             RoomRepresentation closestToShelter = null;
             float shelterDistance = float.MaxValue;
 
-            foreach (RoomRepresentation rRep in roomMemory)
+            foreach (RoomRepresentation rRep in _roomMemory)
             {
                 if (rRep.distToShelter < shelterDistance)
                 {
@@ -199,7 +180,8 @@ namespace SlugBrain.GameClasses
             desire = float.MinValue;
             int exitToBestRoom = -1;
 
-            foreach (RoomRepresentation rRep in roomMemory)
+            // find most attractive room in memory
+            foreach (RoomRepresentation rRep in _roomMemory)
             {
                 if (rRep.room == creature.Room) continue;
 
@@ -207,16 +189,37 @@ namespace SlugBrain.GameClasses
                 int exitToRoom = creature.Room.ExitIndex(rRep.room.index);
                 if (exitToRoom > -1)
                 {
-                    float desireToGoBack = rRep.DesireToGoBack(treatTracker.Utility() > 0);
-                    if (closestToShelter == rRep) desireToGoBack *= 1f + rainTracker.Utility();
+                    float attractiveness = rRep.Attractiveness(treatTracker.Utility() > 0);
 
-                    if (desireToGoBack > desire)
+                    if (closestToShelter == rRep) attractiveness *= 1f + rainTracker.Utility();
+                    if (creature.world.GetAbstractRoom(lastRoom) == rRep.room) attractiveness *= 0.75f;
+
+                    if (attractiveness > desire)
                     {
                         mostDesirable = rRep;
-                        desire = desireToGoBack;
+                        desire = attractiveness;
                         exitToBestRoom = exitToRoom;
                     }
                 }
+            }
+
+            // if no options are very attractive, pick a random connected room
+            if (desire < 0.2f)
+            {
+                if (_randomExitToExplore == null)
+                {
+                    int conn = Mathf.RoundToInt(Random.Range(0, creature.Room.connections.Length));
+                    exitToBestRoom = creature.Room.ExitIndex(creature.Room.connections[conn]);
+                    _randomExitToExplore = exitToBestRoom;
+                }
+                else exitToBestRoom = _randomExitToExplore.Value;
+                
+                randomRoom = true;
+            }
+            else
+            {
+                _randomExitToExplore = null;
+                randomRoom = false;
             }
 
             if (mostDesirable != null)
@@ -293,21 +296,22 @@ namespace SlugBrain.GameClasses
             treatTracker.DrawDebugNodes();
             shelterFinder.DrawDebugNode();
 
-
-            if (threatNode == null) threatNode = new DebugNode(DebugColors.GetColor(DebugColors.Subject.Threat));
             if (threatTracker.mostThreateningCreature != null)
-                threatNode.SetPosition(room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
-
-            if (overallDestinationNode == null) overallDestinationNode =
-                    new DebugNode(DebugColors.GetColor(DebugColors.Subject.Destination), true);
+                BrainPlugin.NodeManager.Draw("threat",
+                    DebugColors.GetColor(DebugColors.Subject.Threat),
+                    room, threatTracker.mostThreateningCreature.BestGuessForPosition().Tile);
+            
             if (Destination.room == room.abstractRoom.index)
             {
-                IntVector2 t = DestinationTile;
-                overallDestinationNode.SetPosition(room, t);
+                BrainPlugin.NodeManager.Draw("destination",
+                    DebugColors.GetColor(DebugColors.Subject.Destination),
+                    room, DestinationTile);
             }
             else
             {
-                overallDestinationNode.SetPosition(room, new IntVector2(1, 1));
+                BrainPlugin.NodeManager.Draw("destination",
+                    DebugColors.GetColor(DebugColors.Subject.Destination),
+                    room, new IntVector2(1, 1));
             }
         }
 
@@ -315,8 +319,7 @@ namespace SlugBrain.GameClasses
         {
             BrainPlugin.TextManager.Write("pos   ", creature.pos);
             BrainPlugin.TextManager.Write("dest  ", Destination);
-            BrainPlugin.TextManager.Write("mvmnt ", slugcat.LastMovement);
-            BrainPlugin.TextManager.Write("active pathfinder", pathFinder);
+            BrainPlugin.TextManager.Write("mvmnt ", _slugcat.LastMovement);
 
             Color moduleColor = DebugColors.GetColor(highestModule);
             BrainPlugin.TextManager.Write("top module", $"{highestModule} {highestModule.Utility()}", moduleColor);
@@ -333,21 +336,16 @@ namespace SlugBrain.GameClasses
         }
 
 
-        SuperSlugcat slugcat;
+        private SuperSlugcat _slugcat;
         public ShelterFinder shelterFinder;
         public TreatTracker treatTracker;
-        public PathFinder standardPathFinder;
-        public PathFinder swimmingPathFinder;
+        public AStarPathfinder aStarPathFinder;
         public JumpModule jumpModule;
-
-        bool submergedLastUpdate;
-
+        
         public Behavior behavior;
 
-        public List<RoomRepresentation> roomMemory;
-
-        DebugNode threatNode;
-        DebugNode overallDestinationNode;
+        private readonly List<RoomRepresentation> _roomMemory;
+        private int? _randomExitToExplore;
 
         public WorldCoordinate Destination { get; private set; }
 
