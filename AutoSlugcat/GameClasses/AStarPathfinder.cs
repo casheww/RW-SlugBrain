@@ -19,15 +19,15 @@ namespace SlugBrain.GameClasses
 
         public override void UpdateRoomRepresentation(RoomRepresentation rRep)
         {
-            if (rRep.room != _room && rRep.room.realizedRoom != null)
-                _room = rRep.room;
+            //if (rRep.room != _room && rRep.room.realizedRoom != null)
+            //    _room = rRep.room;
         }
         
         public void FindPath(WorldCoordinate coords)
         {
             IntVector2 tileInRoom;
 
-            if (_room.index == coords.room)
+            if (Room.index == coords.room)
             {
                 tileInRoom = coords.Tile;
             }
@@ -36,14 +36,15 @@ namespace SlugBrain.GameClasses
                 // if the world coordinate doesn't point to the current room, 
                 //  find the exit from this room that is closest to the target room. 
 
-                if (_room.realizedRoom.shortcuts == null)
+                if (Room.realizedRoom.shortcuts == null)
                 {
                     BrainPlugin.Log("room shortcuts not ready for pathfinding", warning: true);
                     return;
                 }
                 
-                int exit = GetExitIndexForRoom(_room, coords.room);
-                tileInRoom = _room.realizedRoom.LocalCoordinateOfNode(exit).Tile;
+                int exit = GetExitIndexForRoom(Room, coords.room);
+                tileInRoom = Room.realizedRoom.LocalCoordinateOfNode(exit).Tile;
+                BrainPlugin.Log($"finding path to {coords} via exit {exit} at {tileInRoom}");
             }
 
             FindPath(tileInRoom);
@@ -75,11 +76,11 @@ namespace SlugBrain.GameClasses
         
         /// <summary>
         /// Sets the pathfinder up for the A* search to the tile in the room at the given tile coords.
-        /// The search is then run by <see cref="Update"/> calls as <see cref="working"/> is true. 
+        /// The search is then run by <see cref="Update"/> calls
+        /// as <see cref="state"/> is set to <see cref="State"/>.CalculatingPath. 
         /// </summary>
         public void FindPath(IntVector2 destination)
         {
-            BrainPlugin.Log("FindPath");
             state = State.CalculatingPath;
             _start = _creature.pos.Tile;
             _goal = destination;
@@ -89,6 +90,8 @@ namespace SlugBrain.GameClasses
             
             _costToNode_G.Clear();
             _costToNode_G.Add(_start, 0f);
+            
+            BrainPlugin.Log($"setup for pathing from {_start} to {_goal}");
         }
 
         public override void Update()
@@ -103,10 +106,15 @@ namespace SlugBrain.GameClasses
 
         private void DoPathfinding()
         {
-            _bestNode = GetBestNode(out _);
+            foreach (var x in _openNodes)
+            {
+                BrainPlugin.Log($"aaa : {x} : {GetCostToNode_G(x)}");
+            }
+            _bestNode = GetBestNode(out float bestNodeScore);
+            BrainPlugin.Log($"best node : {_bestNode} : {bestNodeScore}");
             _openNodes.Remove(_bestNode);
-            
-            BrainPlugin.NodeManager.Draw("CURRENTNODE", Color.red, _room.realizedRoom, _bestNode);
+
+            BrainPlugin.NodeManager.Draw("CURRENTNODE", Color.red, Room.realizedRoom, _bestNode);
             BrainPlugin.TextManager.Write("bestnode", _bestNode, Color.red);
 
             for (int i = 0; i < Custom.fourDirections.Length; i++)
@@ -121,17 +129,17 @@ namespace SlugBrain.GameClasses
                     return;
                 }
                 
-                BrainPlugin.TextManager.Write("pathfinder pathing", "working", PathingColor);
-
                 // avoid illegal nodes and nodes we've already checked/added
-                if (!CheckIsTileLegal(_room.realizedRoom, neighbour) ||
+                if (!CheckIsTileLegal(Room.realizedRoom, neighbour) ||
                     _nodeParentDictionary.ContainsKey(neighbour) ||
                     _openNodes.Contains(neighbour)) continue;
                 
+                BrainPlugin.TextManager.Write("pathfinder pathing", "working", PathingColor);
+
                 _openNodes.Add(neighbour);
                 _nodeParentDictionary.Add(neighbour, _bestNode);
 
-                float cost = GetMovementCost(_room.realizedRoom, _bestNode, neighbour);
+                float cost = GetMovementCost(Room.realizedRoom, _bestNode, neighbour);
                 _costToNode_G[neighbour] = GetCostToNode_G(_bestNode) + cost;
             }
         }
@@ -156,7 +164,6 @@ namespace SlugBrain.GameClasses
             if (dist < 2f) return 1f;
 
             return float.PositiveInfinity;
-
         }
 
         /// <summary>
@@ -172,7 +179,6 @@ namespace SlugBrain.GameClasses
             foreach (IntVector2 node in _openNodes)
             {
                 float score = EstimateCostToGoalFrom_H(node);
-                BrainPlugin.Log($"{node} {score}");
 
                 // H score comparison with actual displacement as a tie-breaker
                 if (score < bestScore ||
@@ -181,7 +187,6 @@ namespace SlugBrain.GameClasses
                     best = node;
                     bestScore = score;
                 }
-                
             }
 
             return best;
@@ -230,7 +235,7 @@ namespace SlugBrain.GameClasses
             {
                 foreach (IntVector2 n in path)
                 {
-                    BrainPlugin.NodeManager.Draw(n.ToString(), PathingColor, _room.realizedRoom, n, frames: 120);
+                    BrainPlugin.NodeManager.Draw(n.ToString(), PathingColor, Room.realizedRoom, n, frames: 120);
                 }
             }
             
@@ -293,7 +298,7 @@ namespace SlugBrain.GameClasses
         
         private readonly World _world;
         private readonly AbstractCreature _creature;
-        private AbstractRoom _room;
+        private AbstractRoom Room => _creature.Room;
         public State state;
         private const int checksPerUpdate = 1;
         

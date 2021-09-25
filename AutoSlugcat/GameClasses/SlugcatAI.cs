@@ -115,7 +115,8 @@ namespace SlugBrain.GameClasses
                     $"destination : {destination}");
             }
 
-            if (aStarPathFinder.state != AStarPathfinder.State.CalculatingPath) SetDestination(destination);
+            if (aStarPathFinder.state != AStarPathfinder.State.CalculatingPath)
+                SetDestination(destination);
         }
 
         public new void SetDestination(WorldCoordinate dest)
