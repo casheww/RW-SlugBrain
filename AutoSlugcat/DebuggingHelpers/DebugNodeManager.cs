@@ -44,11 +44,13 @@ namespace SlugBrain.DebuggingHelpers
         {
             if (!enabled) return;
             
-            if (!_nodes.TryGetValue(key, out DebugNode existing) || existing?.dSprite?.sprite == null)
+            // create new debug node if there is none for this key or if the room has changed
+            if (!_nodes.TryGetValue(key, out DebugNode existing) || existing?.dSprite?.sprite == null ||
+                existing.dSprite.room != room)
             {
                 _nodes[key] = new DebugNode(room, spriteName);
             }
-
+            
             _nodes[key].dSprite.sprite.color = color;
             _nodes[key].dSprite.pos = room.MiddleOfTile(pos);
             _nodes[key].dSprite.sprite.scale = scale;
