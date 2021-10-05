@@ -78,7 +78,7 @@ namespace SlugBrain.GameClasses
                     _tryingToGrabFood = true;
                     return;
                 }
-                else if (_tryingToGrabFood)
+                if (_tryingToGrabFood)
                 {
                     BrainPlugin.InputSpoofer.ClearInputExceptBuffer();
                     _tryingToGrabFood = false;

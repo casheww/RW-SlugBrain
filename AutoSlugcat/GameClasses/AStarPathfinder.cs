@@ -23,7 +23,7 @@ namespace SlugBrain.GameClasses
             //    _room = rRep.room;
         }
         
-        public void FindPath(WorldCoordinate coords)
+        public void SetDestination(WorldCoordinate coords)
         {
             IntVector2 tileInRoom;
 
@@ -47,7 +47,7 @@ namespace SlugBrain.GameClasses
                 BrainPlugin.Log($"finding path to {coords} via exit {exit} at {tileInRoom}");
             }
 
-            FindPath(tileInRoom);
+            SetDestination(tileInRoom);
         }
         
         /// <param name="room">The starting room.</param>
@@ -79,8 +79,29 @@ namespace SlugBrain.GameClasses
         /// The search is then run by <see cref="Update"/> calls
         /// as <see cref="state"/> is set to <see cref="State"/>.CalculatingPath. 
         /// </summary>
-        public void FindPath(IntVector2 destination)
+        public void SetDestination(IntVector2 destination)
         {
+            if (state == State.CalculatingPath)
+            {
+                bool onPath = false;
+                foreach (IntVector2 v in Custom.eightDirectionsAndZero)
+                {
+                    if (_nodeParentDictionary.ContainsKey(_creature.pos.Tile + v) ||
+                        _nodeParentDictionary.ContainsKey(_creature.pos.Tile + v * 2))
+                    {
+                        onPath = true;
+                        break;
+                    }
+                }
+                
+                if (destination == _goal && (_start.FloatDist(_creature.pos.Tile) < 5f || onPath))
+                {
+                    BrainPlugin.Log($"already finding that path ({_start} to {_goal})!\n\tcancelling new call",
+                        warning: true);
+                    return;
+                }
+            }
+
             state = State.CalculatingPath;
             _start = _creature.pos.Tile;
             _goal = destination;
@@ -90,6 +111,8 @@ namespace SlugBrain.GameClasses
             
             _costToNode_G.Clear();
             _costToNode_G.Add(_start, 0f);
+            
+            _nodeParentDictionary.Clear();
             
             BrainPlugin.Log($"setup for pathing from {_start} to {_goal}");
         }
@@ -106,14 +129,9 @@ namespace SlugBrain.GameClasses
 
         private void DoPathfinding()
         {
-            foreach (var x in _openNodes)
-            {
-                BrainPlugin.Log($"aaa : {x} : {GetCostToNode_G(x)}");
-            }
             _bestNode = GetBestNode(out float bestNodeScore);
-            BrainPlugin.Log($"best node : {_bestNode} : {bestNodeScore}");
-            _openNodes.Remove(_bestNode);
-
+            _openNodes.Remove(_bestNode);           // node is no longer unexplored
+            
             BrainPlugin.NodeManager.Draw("CURRENTNODE", Color.red, Room.realizedRoom, _bestNode);
             BrainPlugin.TextManager.Write("bestnode", _bestNode, Color.red);
 
@@ -121,18 +139,14 @@ namespace SlugBrain.GameClasses
             {
                 IntVector2 neighbour = _bestNode + Custom.fourDirections[i];
 
-                if (neighbour == _goal)
-                {
-                    state = State.Done;
-                    FinalPath = ConstructPath(_goal, true);
-                    BrainPlugin.TextManager.Write("pathfinder pathing", $"done -> {FinalPath.Length}", PathingColor);
-                    return;
-                }
-                
                 // avoid illegal nodes and nodes we've already checked/added
                 if (!CheckIsTileLegal(Room.realizedRoom, neighbour) ||
                     _nodeParentDictionary.ContainsKey(neighbour) ||
-                    _openNodes.Contains(neighbour)) continue;
+                    _nodeParentDictionary.ContainsValue(neighbour) ||
+                    _openNodes.Contains(neighbour))
+                {
+                    continue;
+                }
                 
                 BrainPlugin.TextManager.Write("pathfinder pathing", "working", PathingColor);
 
@@ -141,6 +155,15 @@ namespace SlugBrain.GameClasses
 
                 float cost = GetMovementCost(Room.realizedRoom, _bestNode, neighbour);
                 _costToNode_G[neighbour] = GetCostToNode_G(_bestNode) + cost;
+                
+                // check if done
+                if (neighbour.FloatDist(_goal) < 2f)
+                {
+                    state = State.Done;
+                    FinalPath = ConstructPath(neighbour, true);
+                    BrainPlugin.Log($"pathfinder : done -> {FinalPath.Length}");
+                    BrainPlugin.TextManager.Write("pathfinder pathing", $"done -> {FinalPath.Length}", PathingColor);
+                }
             }
         }
 
@@ -163,7 +186,7 @@ namespace SlugBrain.GameClasses
             float dist = from.FloatDist(to);
             if (dist < 2f) return 1f;
 
-            return float.PositiveInfinity;
+            return float.PositiveInfinity;  
         }
 
         /// <summary>
@@ -223,9 +246,10 @@ namespace SlugBrain.GameClasses
             List<IntVector2> path = new List<IntVector2>() { to };
             IntVector2 current = to;
 
-            while (_nodeParentDictionary.ContainsKey(current))
+            while (_nodeParentDictionary.TryGetValue(current, out IntVector2 parent))
             {
-                current = _nodeParentDictionary[current];
+                BrainPlugin.Log($"{current} has parent {parent}");
+                current = parent;
                 path.Add(current);
             }
             
@@ -267,7 +291,7 @@ namespace SlugBrain.GameClasses
                 {
                     BrainPlugin.TextManager.Write("pathfinder", $"{shortestDist} away from path. Redoing!",
                         PathingColor, 80);
-                    FindPath(_goal);
+                    SetDestination(_goal);
                     return noMovement;
                 }
                 

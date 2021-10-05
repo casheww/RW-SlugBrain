@@ -97,7 +97,7 @@ namespace SlugBrain.GameClasses
                 else
                 {
                     pathBlocked = true;
-                    BrainPlugin.NodeManager.Draw(currentTile.ToString(), new Color(0.4f, 0, 0), room, currentTile, 5f);
+                    //BrainPlugin.NodeManager.Draw($"jumpblock{currentTile}", new Color(0.4f, 0, 0), room, currentTile, 5f);
                 }
                 
             } while (!pathBlocked);
