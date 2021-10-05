@@ -15,10 +15,10 @@ namespace SlugBrain.GameClasses
             : base(ai)
         {
             _foods = new List<FoodRepresentation>();
-            this._maxFoodCount = maxFoodCount;
-            this._persistance = persistance;
+            _maxFoodCount = maxFoodCount;
+            _persistance = persistance;
 
-            this._discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
+            _discourageDist = Mathf.Clamp(discourageDist, 20f, 500f);
 
             _foodColor = DebugColors.GetColor(DebugColors.Subject.Food);
         }
@@ -111,7 +111,8 @@ namespace SlugBrain.GameClasses
         public void RegisterFoodEaten(AbstractPhysicalObject obj)
         {
             RemoveFood(obj);
-            AI.pathFinder.Reset(AI.creature.realizedCreature.room);
+            //if (AI is SlugcatAI slugAI)
+                //slugAI.aStarPathFinder.UpdateRoomRepresentation();
         }
         public void RemoveFood(AbstractPhysicalObject obj)
         {
