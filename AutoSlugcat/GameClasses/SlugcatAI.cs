@@ -336,11 +336,11 @@ namespace SlugBrain.GameClasses
         }
 
 
-        private SuperSlugcat _slugcat;
-        public ShelterFinder shelterFinder;
-        public TreatTracker treatTracker;
-        public AStarPathfinder aStarPathFinder;
-        public JumpModule jumpModule;
+        private readonly SuperSlugcat _slugcat;
+        public readonly ShelterFinder shelterFinder;
+        public readonly TreatTracker treatTracker;
+        public readonly AStarPathfinder aStarPathFinder;
+        public readonly JumpModule jumpModule;
         
         public Behavior behavior;
 

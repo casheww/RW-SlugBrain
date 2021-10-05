@@ -96,8 +96,8 @@ namespace SlugBrain.GameClasses
                 
                 if (destination == _goal && (_start.FloatDist(_creature.pos.Tile) < 5f || onPath))
                 {
-                    BrainPlugin.Log($"already finding that path ({_start} to {_goal})!\n\tcancelling new call",
-                        warning: true);
+                    //BrainPlugin.Log($"already finding that path ({_start} to {_goal})!\n\tcancelling new call",
+                    //    warning: true);
                     return;
                 }
             }
@@ -167,7 +167,7 @@ namespace SlugBrain.GameClasses
             }
         }
 
-        private bool CheckIsTileLegal(Room room, IntVector2 tile)
+        private bool CheckIsTileLegal(Room room, IntVector2 tile)       // TODO : gravity
         {
             if (!room.IsPositionInsideBoundries(tile)) return false;
             
