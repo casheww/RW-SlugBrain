@@ -9,7 +9,7 @@ namespace SlugBrain.GameClasses
     /// <summary>
     /// AIModule for tracking treats (food edibles)
     /// </summary>
-    class TreatTracker : SlugcatAIModule        // not to be confused with the threat trackers :)))
+    public class TreatTracker : SlugcatAIModule        // not to be confused with the threat trackers :)))
     {
         public TreatTracker(ArtificialIntelligence ai, int maxFoodCount, float persistance, float discourageDist)
             : base(ai)
@@ -263,10 +263,10 @@ namespace SlugBrain.GameClasses
             {
                 get
                 {
-                    if (RealizedObject == null || RealizedObject.room == null) return -1f;
+                    if (RealizedObject?.room == null) return -1f;
 
                     if (!RealizedObject.room.readyForAI ||
-                        !(_tracker.AI as SlugcatAI).jumpModule.CheckJumpAndGrabbable(RealizedObject.room.aimap, abstractObject.pos.Tile))
+                        !JumpCalculator.CheckIsBasicJumpable(_tracker.AI.creature.Room.realizedRoom, abstractObject.pos.Tile))
                     {
                         return -1f;
                     }

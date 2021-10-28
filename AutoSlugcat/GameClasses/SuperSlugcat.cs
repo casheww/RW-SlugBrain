@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using RWCustom;
 using UnityEngine;
 
@@ -29,7 +31,7 @@ namespace SlugBrain.GameClasses
             base.Update(eu);
         }
 
-        void Act()
+        private void Act()
         {
             ai.Update();
 
@@ -80,7 +82,7 @@ namespace SlugBrain.GameClasses
                 }
                 if (_tryingToGrabFood)
                 {
-                    BrainPlugin.InputSpoofer.ClearInputExceptBuffer();
+                    BrainPlugin.InputSpoofer.PushInputPackages(new [] {new InputPackage()});
                     _tryingToGrabFood = false;
                 }
             }
@@ -88,7 +90,7 @@ namespace SlugBrain.GameClasses
             FollowPath();
         }
 
-        void FollowPath()
+        private void FollowPath()
         {
             // prefered and backup start positions are used because one chunk may not be able to reach a valid path while the other can
             WorldCoordinate preferedStart = room.GetWorldCoordinate(bodyChunks[_preferedChunkIndex].pos);
@@ -112,7 +114,7 @@ namespace SlugBrain.GameClasses
             _lastPreferedStart = preferedStart;
         }
 
-        void FollowPath(WorldCoordinate preferedStart, WorldCoordinate backupStart, bool gettingUnstuck)
+        private void FollowPath(WorldCoordinate preferedStart, WorldCoordinate backupStart, bool gettingUnstuck)
         {
             MovementConnection movement;
 
@@ -126,7 +128,7 @@ namespace SlugBrain.GameClasses
             Move(movement, gettingUnstuck);
         }
 
-        void Move(MovementConnection movement, bool unstick = false)
+        private void Move(MovementConnection movement, bool unstick = false)
         {
             LastMovement = movement;
 
@@ -141,14 +143,20 @@ namespace SlugBrain.GameClasses
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
             //Vector2 destDir = Custom.DirVec(movement.StartTile.ToVector2(), AI.Destination.Tile.ToVector2());
 
-            int x;
-            int y;
+            int x = 0;
+            int y = 0;
             bool holdJmp = false;
 
             Room.Tile startTile = room.GetTile(movement.StartTile);
             Room.Tile destTile = room.GetTile(movement.DestTile);
 
-            if (destTile.Terrain == Room.Tile.TerrainType.Slope)
+            if (movement.type == EnumExt_SlugBrainJumps.StandardJump)
+            {
+                x = dir.x < -0.6f ? -1 : (dir.x > 0.6f ? 1 : 0);
+                y = 1;
+                holdJmp = true;
+            }
+            else if (destTile.Terrain == Room.Tile.TerrainType.Slope)
             {
                 Room.SlopeDirection slope = room.IdentifySlope(movement.DestTile);
                 BrainPlugin.Log($"slope {slope}");
@@ -178,15 +186,15 @@ namespace SlugBrain.GameClasses
                 }
             }
             
-            InputPackage input = new InputPackage(
+            var inputPackage = new InputPackage(
                 false,
                 x, y,
                 false,
                 false, false, false, false
             );
 
-            BrainPlugin.InputSpoofer.PushNewInput(input);
-            _lastInput = input;
+            List<InputPackage> inputPackages = new List<InputPackage>() { inputPackage };
+            _lastInput = inputPackage;
 
             if (movement.type == MovementConnection.MovementType.ReachUp ||
                 movement.type == MovementConnection.MovementType.DoubleReachUp ||
@@ -194,11 +202,14 @@ namespace SlugBrain.GameClasses
                 unstick ||
                 holdJmp)
             {
-                BrainPlugin.InputSpoofer.Jump(20);
+                for (int i = 0; i < 7; i++)
+                    inputPackages.Add(new InputPackage(false, 0, 0, true, false, false, false, false));
             }
+            
+            BrainPlugin.InputSpoofer.PushInputPackages(inputPackages.ToArray());
         }
 
-        bool CheckBeamStatus(IntVector2 start, out bool vBeam, out bool hBeam)
+        private bool CheckBeamStatus(IntVector2 start, out bool vBeam, out bool hBeam)
         {
             Room.Tile startTile = room.GetTile(start);
             hBeam = startTile.horizontalBeam;
@@ -218,27 +229,27 @@ namespace SlugBrain.GameClasses
             return vBeam || hBeam;
         }
 
-        void Hibernate()
+        private void Hibernate()
         {
             if (!room.shelterDoor.IsClosing)
             {
                 int x = abstractCreature.pos.x;
                 if (x == 25)
                 {
-                    BrainPlugin.InputSpoofer.PushNewInput(new InputPackage());
+                    BrainPlugin.InputSpoofer.PushInputPackages(new [] { new InputPackage() });
                 }
                 else FollowPath();
             }
-            else BrainPlugin.InputSpoofer.PushNewInput(new InputPackage());
+            else BrainPlugin.InputSpoofer.PushInputPackages(new [] { new InputPackage() });
         }
 
-        void GrabOrEat()
+        private void GrabOrEat()
         {
-            BrainPlugin.InputSpoofer.PushNewInput(new InputPackage() { pckp = true });
+            BrainPlugin.InputSpoofer.PushInputPackages(new [] { new InputPackage() { pckp = true } });
         }
 
 
-        void DebugTerrain()
+        private void DebugTerrain()
         {
             if (_tileDebugLabel == null)
             {

@@ -54,8 +54,10 @@
     <Compile Include="DebugColors.cs" />
     <Compile Include="DebuggingHelpers\DebugNodeManager.cs" />
     <Compile Include="GameClasses\AStarPathfinder.cs" />
+    <Compile Include="GameClasses\EnumExt_SlugBrainJumps.cs" />
+    <Compile Include="GameClasses\JumpCalculator.JumpData.cs" />
     <Compile Include="GameClasses\RoomRepresentation.cs" />
-    <Compile Include="GameClasses\JumpModule.cs" />
+    <Compile Include="GameClasses\JumpCalculator.cs" />
     <Compile Include="GameClasses\SlugcatAIModule.cs" />
     <Compile Include="GameClasses\TreatTracker.cs" />
     <Compile Include="GameClasses\ShelterFinder.cs" />

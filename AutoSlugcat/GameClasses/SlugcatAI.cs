@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SlugBrain.GameClasses
 {
-    class SlugcatAI : ArtificialIntelligence, IUseARelationshipTracker
+    public class SlugcatAI : ArtificialIntelligence, IUseARelationshipTracker
     {
         public SlugcatAI(AbstractCreature creature, World world) : base(creature, world)
         {
@@ -27,8 +27,6 @@ namespace SlugBrain.GameClasses
             shelterFinder = new ShelterFinder(this);
             AddModule(shelterFinder);
             
-            jumpModule = new JumpModule(this);      // not a real AI module
-
             // comparer
             AddModule(new UtilityComparer(this));
             utilityComparer.AddComparedModule(threatTracker, null, 0.9f, 1.1f);
@@ -340,7 +338,6 @@ namespace SlugBrain.GameClasses
         public readonly ShelterFinder shelterFinder;
         public readonly TreatTracker treatTracker;
         public readonly AStarPathfinder aStarPathFinder;
-        public readonly JumpModule jumpModule;
         
         public Behavior behavior;
 

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SlugBrain.GameClasses
 {
-    public class AStarPathfinder : SlugcatAIModule
+    public partial class AStarPathfinder : SlugcatAIModule
     {
         public AStarPathfinder(ArtificialIntelligence ai, World world, AbstractCreature creature) : base(ai)
         {
@@ -17,11 +17,7 @@ namespace SlugBrain.GameClasses
             _costToNode_G = new Dictionary<IntVector2, float>();
         }
 
-        public override void UpdateRoomRepresentation(RoomRepresentation rRep)
-        {
-            //if (rRep.room != _room && rRep.room.realizedRoom != null)
-            //    _room = rRep.room;
-        }
+        public override void UpdateRoomRepresentation(RoomRepresentation rRep) { }
         
         public void SetDestination(WorldCoordinate coords)
         {
@@ -129,32 +125,22 @@ namespace SlugBrain.GameClasses
 
         private void DoPathfinding()
         {
-            _bestNode = GetBestNode(out float bestNodeScore);
+            _bestNode = GetBestNode(out _);
             _openNodes.Remove(_bestNode);           // node is no longer unexplored
             
-            BrainPlugin.NodeManager.Draw("CURRENTNODE", Color.red, Room.realizedRoom, _bestNode);
+            BrainPlugin.NodeManager.Draw("bestnode", Color.red, Room.realizedRoom, _bestNode, 5f);
             BrainPlugin.TextManager.Write("bestnode", _bestNode, Color.red);
 
-            for (int i = 0; i < Custom.fourDirections.Length; i++)
+            foreach (IntVector2 dir in Custom.fourDirections)
             {
-                IntVector2 neighbour = _bestNode + Custom.fourDirections[i];
-
-                // avoid illegal nodes and nodes we've already checked/added
-                if (!CheckIsTileLegal(Room.realizedRoom, neighbour) ||
-                    _nodeParentDictionary.ContainsKey(neighbour) ||
-                    _nodeParentDictionary.ContainsValue(neighbour) ||
-                    _openNodes.Contains(neighbour))
-                {
+                IntVector2 neighbour = _bestNode + dir;
+                
+                if (!CheckIsTileLegal(Room.realizedRoom, neighbour))
                     continue;
-                }
                 
                 BrainPlugin.TextManager.Write("pathfinder pathing", "working", PathingColor);
 
-                _openNodes.Add(neighbour);
-                _nodeParentDictionary.Add(neighbour, _bestNode);
-
-                float cost = GetMovementCost(Room.realizedRoom, _bestNode, neighbour);
-                _costToNode_G[neighbour] = GetCostToNode_G(_bestNode) + cost;
+                AddOpenNode(MovementConnection.MovementType.Standard, neighbour, _bestNode);
                 
                 // check if done
                 if (neighbour.FloatDist(_goal) < 2f)
@@ -165,26 +151,60 @@ namespace SlugBrain.GameClasses
                     BrainPlugin.TextManager.Write("pathfinder pathing", $"done -> {FinalPath.Length}", PathingColor);
                 }
             }
+            
+            // add tiles that can be reached from the current best node by jumping
+            foreach (var jData in JumpCalculator.GetJumpableTiles(_creature.Room.realizedRoom, _bestNode))
+            {
+                BrainPlugin.NodeManager.Draw($"j{jData.to}", Color.cyan, Room.realizedRoom, jData.to, 4f, 20);
+                AddOpenNode(jData.MovementType, jData.to, _bestNode);
+            }
         }
 
-        private bool CheckIsTileLegal(Room room, IntVector2 tile)       // TODO : gravity
+        private void AddOpenNode(MovementConnection.MovementType moveType, IntVector2 node, IntVector2 parent)
+        {
+            // don't add nodes that are already marked as open or have already been checked
+            if (_openNodes.Contains(node) ||
+                _nodeParentDictionary.ContainsValue(node) ||
+                _nodeParentDictionary.ContainsKey(node))
+                return;
+
+            _openNodes.Add(node);
+            _nodeParentDictionary.Add(node, parent);
+            _costToNode_G[node] = GetCostToNode_G(parent) + GetMovementCost(moveType, parent, node);
+        }
+        
+        private bool CheckIsTileLegal(Room room, IntVector2 tile)
         {
             if (!room.IsPositionInsideBoundries(tile)) return false;
             
             if (room.readyForAI)
             {
                 AItile.Accessibility acc = room.aimap.getAItile(tile).acc;
-                if (acc == AItile.Accessibility.Solid || acc == AItile.Accessibility.OffScreen)
-                    return false;
+
+                if (acc == AItile.Accessibility.Floor ||
+                    acc == AItile.Accessibility.Climb ||
+                    acc == AItile.Accessibility.Corridor)
+                    return true;
             }
 
-            return true;
+            return false;
         }
 
-        private float GetMovementCost(Room room, IntVector2 from, IntVector2 to)
+        private float GetMovementCost(MovementConnection.MovementType moveType, IntVector2 from, IntVector2 to)
         {
             float dist = from.FloatDist(to);
-            if (dist < 2f) return 1f;
+
+            switch (moveType)
+            {
+                default:
+                    if (moveType == EnumExt_SlugBrainJumps.StandardJump)
+                        return 2f;
+                    else if (dist < 2f)
+                        return 1f;
+                    break;
+            }
+            
+            // TODO costs for different movements (like jumps)
 
             return float.PositiveInfinity;  
         }
@@ -291,6 +311,7 @@ namespace SlugBrain.GameClasses
                 {
                     BrainPlugin.TextManager.Write("pathfinder", $"{shortestDist} away from path. Redoing!",
                         PathingColor, 80);
+                    BrainPlugin.Log($"{shortestDist} away from path. Redoing!", warning: true);
                     SetDestination(_goal);
                     return noMovement;
                 }
@@ -298,16 +319,34 @@ namespace SlugBrain.GameClasses
                 // ... otherwise move to next node in path
                 if (closestNodeIndex + 1 < FinalPath.Length)
                 {
+                    IntVector2 currentTile = FinalPath[closestNodeIndex];
                     IntVector2 nextTile = FinalPath[closestNodeIndex + 1];
-                    return new MovementConnection(MovementConnection.MovementType.Standard,
-                        start,
-                        new WorldCoordinate(start.room, nextTile.x, nextTile.y, -1),
-                        (int)start.Tile.FloatDist(nextTile));
+
+                    // check if tiles are adjacent
+                    if (Mathf.Abs(nextTile.y - currentTile.y) + Mathf.Abs(nextTile.x - currentTile.x) <= 1)
+                    {
+                        return new MovementConnection(MovementConnection.MovementType.Standard,
+                            start,
+                            new WorldCoordinate(start.room, nextTile.x, nextTile.y, -1),
+                            (int)start.Tile.FloatDist(nextTile));
+                    }
+                    
+                    // for non-adjacent tiles, check if jumpable instead
+                    bool jumpable = JumpCalculator.CheckJumpability(_creature.Room.realizedRoom, currentTile, nextTile,
+                        out MovementConnection.MovementType movementType);
+
+                    if (jumpable)
+                    {
+                        return new MovementConnection(movementType, start,
+                            new WorldCoordinate(start.room, nextTile.x, nextTile.y, -1),
+                            (int)start.Tile.FloatDist(nextTile));
+                    }
                 }
             }
             
             BrainPlugin.TextManager.Write("pathfinder", $"no path from {start} to {_goal}. state?{state}",
                 PathingColor);
+            BrainPlugin.Log($"no path from {start} to {_goal}", error: true);
             return noMovement;
         }
 
@@ -338,6 +377,6 @@ namespace SlugBrain.GameClasses
 
         private static Color PathingColor =>
             DebugColors.GetColor(DebugColors.Subject.Destination);
-
+        
     }
 }

@@ -1,7 +1,7 @@
 ﻿
 namespace SlugBrain.GameClasses
 {
-    class ShelterFinder : SlugcatAIModule
+    public class ShelterFinder : SlugcatAIModule
     {
         public ShelterFinder(ArtificialIntelligence ai) : base(ai) { }
 

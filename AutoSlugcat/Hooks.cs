@@ -14,8 +14,6 @@ namespace SlugBrain
             On.Player.checkInput += Player_checkInput;
             On.Player.ObjectEaten += Player_ObjectEaten;
             On.AImap.IsConnectionAllowedForCreature += AImap_IsConnectionAllowedForCreature;
-            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate += AImap_TileAccessibleToCreature;
-            On.Room.ReadyForAI += Room_ReadyForAI;
         }
         public static void Disable()
         {
@@ -25,8 +23,6 @@ namespace SlugBrain
             On.Player.checkInput -= Player_checkInput;
             On.Player.ObjectEaten -= Player_ObjectEaten;
             On.AImap.IsConnectionAllowedForCreature -= AImap_IsConnectionAllowedForCreature;
-            On.AImap.TileAccessibleToCreature_IntVector2_CreatureTemplate -= AImap_TileAccessibleToCreature;
-            On.Room.ReadyForAI -= Room_ReadyForAI;
         }
 
         private static void AbstractCreature_ctor(On.AbstractCreature.orig_ctor orig, AbstractCreature self,
@@ -74,7 +70,7 @@ namespace SlugBrain
         {
             orig(self);
 
-            self.input[0] = BrainPlugin.InputSpoofer.ModifyInputs(self.input[0]);
+            self.input[0] = BrainPlugin.InputSpoofer.ModifyInput(self.input[0]);
         }
 
         private static void Player_ObjectEaten(On.Player.orig_ObjectEaten orig, Player self, IPlayerEdible edible)
@@ -100,28 +96,6 @@ namespace SlugBrain
 
             return result;
         }
-
-        private static bool AImap_TileAccessibleToCreature(
-            On.AImap.orig_TileAccessibleToCreature_IntVector2_CreatureTemplate orig,
-            AImap self, IntVector2 pos, CreatureTemplate crit) =>
-                orig(self, pos, crit) || crit.type == CreatureTemplate.Type.Slugcat && tilesJumpable.Contains(pos);
-                // orig OR (slugcat AND in list of pre-calculated jumpable tiles)
-
-        private static void Room_ReadyForAI(On.Room.orig_ReadyForAI orig, Room self)
-        {
-            orig(self);
-            
-            foreach (Room.Tile t in self.Tiles)
-            {
-                IntVector2 pos = new IntVector2(t.X, t.Y);
-                tilesJumpable.AddRange(JumpModule.GetJumpableTiles(self, pos, self.aimap.getAItile(pos)));
-            }
-
-            BrainPlugin.Log($"ReadyForAI - tiles that can be jumped to : {tilesJumpable.Count}");
-        }
-
-
-        public static readonly List<IntVector2> tilesJumpable = new List<IntVector2>();
-
+        
     }
 }
