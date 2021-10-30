@@ -32,6 +32,7 @@ namespace SlugBrain
             }
             else newPackage = new Player.InputPackage();
 
+            PreviousInput = newPackage;
             return newPackage;
         }
 
@@ -83,6 +84,7 @@ namespace SlugBrain
 
 
         private readonly Player.InputPackage[] _buffer;
+        public Player.InputPackage PreviousInput { get; private set; }
 
         private int Front
         {

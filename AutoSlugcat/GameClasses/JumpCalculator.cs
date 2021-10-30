@@ -1,6 +1,5 @@
 ﻿using RWCustom;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SlugBrain.GameClasses
@@ -20,14 +19,14 @@ namespace SlugBrain.GameClasses
 
             Vector2 pixelStart = ConvertTileToPixels(start);
 
-            foreach (JumpType jump in _validJumpTypes)
+            foreach (JumpType jType in _validJumps)
             {
-                float maxX = _jumpXVelocities[(int)jump];
+                float maxX = jType.xVelocity;
                 
-                if (CheckJumpStartIsValid(room, start, room.aimap.getClampedAItile(start.x, start.y), jump))
+                if (CheckJumpStartIsValid(room, start, jType.type))
                 {
-                    tiles.AddRange(CastJumpPath(room, pixelStart, jump, maxX, 0));
-                    tiles.AddRange(CastJumpPath(room, pixelStart, jump, -maxX, 0));
+                    tiles.AddRange(CastJumpPath(room, pixelStart, jType, maxX, 0));
+                    tiles.AddRange(CastJumpPath(room, pixelStart, jType, -maxX, 0));
                 }
             }
             
@@ -41,8 +40,7 @@ namespace SlugBrain.GameClasses
             Vector2 current = pixelStart;
             int frame = 0;
             //float gravity = room.gravity * 0.9f;     // 90% because of funny game physics --- temporarily ignoring room.gravity
-
-            float[] accel = _jumpYAccelerations[(int) jType];
+            float[] accel = jType.yAccelerations;
 
             bool pathBlocked = false;
             do
@@ -58,7 +56,7 @@ namespace SlugBrain.GameClasses
                 
                 if (CheckCanIMoveOntoTile(room, currentTile))
                 {
-                    path.Add(new JumpData(ConvertPixelsToTile(pixelStart), currentTile, jType));
+                    path.Add(new JumpData(ConvertPixelsToTile(pixelStart), currentTile, jType.type));
                 }
                 else pathBlocked = true;
 
@@ -68,17 +66,16 @@ namespace SlugBrain.GameClasses
         }
         
         private static List<JumpData> CastJumpPath(Room room, IntVector2 start, JumpType jType) =>
-            CastJumpPath(room, ConvertTileToPixels(start), jType,
-                _jumpXVelocities[(int)jType], 0);
+            CastJumpPath(room, ConvertTileToPixels(start), jType, jType.xVelocity, 0);
 
         public static bool CheckJumpability(Room room, IntVector2 start, IntVector2 end,
             out MovementConnection.MovementType movementType)
         {
-            foreach (JumpType jType in _validJumpTypes)
+            foreach (JumpType jType in _validJumps)
                 foreach (JumpData jData in CastJumpPath(room, start, jType))
                     if (jData.to == end)
                     {
-                        movementType = GetMovementType(jType);
+                        movementType = jType.type;
                         return true;
                     }
 
@@ -86,15 +83,19 @@ namespace SlugBrain.GameClasses
             return false;
         }
 
-        private static bool CheckJumpStartIsValid(Room room, IntVector2 start, AItile aiTile, JumpType jump)
+        public static bool CheckJumpStartIsValid(Room room, IntVector2 start, MovementConnection.MovementType jump)
         {
             if (!room.IsPositionInsideBoundries(start)) return false;
+
+            AItile aiTile = room.aimap.getClampedAItile(start.x, start.y);
+            Room.Tile ground = room.GetTile(start - new IntVector2(0, 1));
             
-            switch (jump)
-            {
-                case JumpType.StandardJump:
-                    return aiTile.acc == AItile.Accessibility.Floor || aiTile.acc == AItile.Accessibility.Climb;
-            }
+            if (jump == EnumExt_SlugMovements.StandingJump)
+                return aiTile.acc == AItile.Accessibility.Floor ||
+                       aiTile.acc == AItile.Accessibility.Climb ||
+                       ground.Terrain == Room.Tile.TerrainType.Slope;
+            
+            // TODO add jump types here
 
             return false;
         }
@@ -131,38 +132,12 @@ namespace SlugBrain.GameClasses
 
         
         // =====
-        
-        public enum JumpType
-        {
-            StandardJump,
-            //Pounce,
-            //SlidePounce
-        }
 
-        private static MovementConnection.MovementType GetMovementType(JumpType jump)
+        private static readonly JumpType[] _validJumps = new []
         {
-            switch (jump)
-            {
-                case JumpType.StandardJump:
-                    return EnumExt_SlugBrainJumps.StandardJump;
-                default:
-                    return MovementConnection.MovementType.Standard;
-            }
-        }
-
-        private static readonly JumpType[] _validJumpTypes = new JumpType[]
-        {
-            JumpType.StandardJump
-        };
-
-        private static readonly float[][] _jumpYAccelerations = new float[][]
-        {
-            new [] { 0f, 5.50f, 3.77f, 1.36f, 0.66f, -0.01f, -0.69f, -1.36f, -1.35f }       // StandardJump
-        };
-
-        private static readonly float[] _jumpXVelocities = new float[]
-        {
-            4.0f        // StandardJump
+            new JumpType(EnumExt_SlugMovements.StandingJump,
+                new [] { 0f, 5.50f, 3.77f, 1.36f, 0.66f, -0.01f, -0.69f, -1.36f, -1.35f },
+                4.0f)
         };
 
     }

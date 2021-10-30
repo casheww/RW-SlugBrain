@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace SlugBrain
 {
-    [BepInPlugin("casheww.slugbrain", "SlugBrain", "0.1.0")]
+    [BepInPlugin("casheww.slugbrain", "SlugBrain", "0.1.1")]
     class BrainPlugin : BaseUnityPlugin
     {
         private void OnEnable()
@@ -51,9 +51,9 @@ namespace SlugBrain
                 _Logger.Log(level, message ?? "null");
             }
         }
-        
 
-        public static BepInEx.Logging.ManualLogSource _Logger { get; private set; }
+
+        public static ManualLogSource _Logger { get; private set; }
         public static InputSpoofer InputSpoofer { get; private set; }
 
         public static DebuggingHelpers.DebugTextManager TextManager { get; private set; }

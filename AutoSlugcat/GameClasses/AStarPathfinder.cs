@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SlugBrain.GameClasses
 {
-    public partial class AStarPathfinder : SlugcatAIModule
+    public class AStarPathfinder : SlugcatAIModule
     {
         public AStarPathfinder(ArtificialIntelligence ai, World world, AbstractCreature creature) : base(ai)
         {
@@ -156,7 +156,7 @@ namespace SlugBrain.GameClasses
             foreach (var jData in JumpCalculator.GetJumpableTiles(_creature.Room.realizedRoom, _bestNode))
             {
                 BrainPlugin.NodeManager.Draw($"j{jData.to}", Color.cyan, Room.realizedRoom, jData.to, 4f, 20);
-                AddOpenNode(jData.MovementType, jData.to, _bestNode);
+                AddOpenNode(jData.type, jData.to, _bestNode);
             }
         }
 
@@ -197,8 +197,8 @@ namespace SlugBrain.GameClasses
             switch (moveType)
             {
                 default:
-                    if (moveType == EnumExt_SlugBrainJumps.StandardJump)
-                        return 2f;
+                    if (moveType == EnumExt_SlugMovements.StandingJump)
+                        return 5f;
                     else if (dist < 2f)
                         return 1f;
                     break;
@@ -305,7 +305,7 @@ namespace SlugBrain.GameClasses
                         shortestDist = d;
                     }
                 }
-
+                
                 // if too far away from closest node, re-evaluate path
                 if (shortestDist > 5f && state != State.CalculatingPath)
                 {
@@ -316,7 +316,9 @@ namespace SlugBrain.GameClasses
                     return noMovement;
                 }
                 
-                // ... otherwise move to next node in path
+                // else if not close enough to 
+                
+                // ... else move to next node in path
                 if (closestNodeIndex + 1 < FinalPath.Length)
                 {
                     IntVector2 currentTile = FinalPath[closestNodeIndex];

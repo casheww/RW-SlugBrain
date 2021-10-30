@@ -317,7 +317,6 @@ namespace SlugBrain.GameClasses
         {
             BrainPlugin.TextManager.Write("pos   ", creature.pos);
             BrainPlugin.TextManager.Write("dest  ", Destination);
-            BrainPlugin.TextManager.Write("mvmnt ", _slugcat.LastMovement);
 
             Color moduleColor = DebugColors.GetColor(highestModule);
             BrainPlugin.TextManager.Write("top module", $"{highestModule} {highestModule.Utility()}", moduleColor);

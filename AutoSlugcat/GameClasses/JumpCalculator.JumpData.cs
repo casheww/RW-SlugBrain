@@ -6,18 +6,16 @@ namespace SlugBrain.GameClasses
     {
         public readonly struct JumpData
         {
-            public JumpData(IntVector2 from, IntVector2 to, JumpType type)
+            public JumpData(IntVector2 from, IntVector2 to, MovementConnection.MovementType type)
             {
                 this.from = from;
                 this.to = to;
                 this.type = type;
             }
-
-            public MovementConnection.MovementType MovementType => GetMovementType(type);
-
+            
             public readonly IntVector2 from;
             public readonly IntVector2 to;
-            public readonly JumpType type;
+            public readonly MovementConnection.MovementType type;
         }
     }
 }

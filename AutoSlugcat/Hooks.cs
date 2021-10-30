@@ -71,6 +71,7 @@ namespace SlugBrain
             orig(self);
 
             self.input[0] = BrainPlugin.InputSpoofer.ModifyInput(self.input[0]);
+            BrainPlugin.TextManager.Write("input ", $"{self.input[0].x},{self.input[0].y} {self.input[0].jmp}");
         }
 
         private static void Player_ObjectEaten(On.Player.orig_ObjectEaten orig, Player self, IPlayerEdible edible)
