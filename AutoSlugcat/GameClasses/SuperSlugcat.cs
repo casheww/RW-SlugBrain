@@ -201,10 +201,7 @@ namespace SlugBrain.GameClasses
             x = Math.Sign(dir.x);
             y = Math.Sign(dir.y);
             
-            if (movement.type == MovementConnection.MovementType.ReachUp ||
-                movement.type == MovementConnection.MovementType.DoubleReachUp ||
-                movement.type == MovementConnection.MovementType.ReachOverGap ||
-                unstick)
+            if (unstick)
             {
                 BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
                 return;

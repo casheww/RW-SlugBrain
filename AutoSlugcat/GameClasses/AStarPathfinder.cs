@@ -198,7 +198,7 @@ namespace SlugBrain.GameClasses
             {
                 default:
                     if (moveType == EnumExt_SlugMovements.StandingJump)
-                        return 5f;
+                        return 7f;
                     else if (dist < 2f)
                         return 1f;
                     break;
@@ -221,7 +221,7 @@ namespace SlugBrain.GameClasses
 
             foreach (IntVector2 node in _openNodes)
             {
-                float score = EstimateCostToGoalFrom_H(node);
+                float score = GetOverallCost_F(node);
 
                 // H score comparison with actual displacement as a tie-breaker
                 if (score < bestScore ||
@@ -315,9 +315,7 @@ namespace SlugBrain.GameClasses
                     SetDestination(_goal);
                     return noMovement;
                 }
-                
-                // else if not close enough to 
-                
+
                 // ... else move to next node in path
                 if (closestNodeIndex + 1 < FinalPath.Length)
                 {
@@ -365,7 +363,7 @@ namespace SlugBrain.GameClasses
         private readonly AbstractCreature _creature;
         private AbstractRoom Room => _creature.Room;
         public State state;
-        private const int checksPerUpdate = 1;
+        private const int checksPerUpdate = 5;
         
         private IntVector2 _start;
         private IntVector2 _goal;
