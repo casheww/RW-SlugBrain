@@ -303,11 +303,14 @@ namespace SlugBrain.GameClasses
                     $"{tPos}\n" +
                     $"terrain:{room.GetTile(tPos).Terrain}\n" +
                     $"slope:{room.IdentifySlope(tPos)}\n" +
-                    $"aitile:{ai.pathFinder.AITileAtWorldCoordinate(new WorldCoordinate(room.abstractRoom.index, tPos.x, tPos.y, -1)).acc}";
+                    $"aitile:{room.aimap.getAItile(new WorldCoordinate(room.abstractRoom.index, tPos.x, tPos.y, -1)).acc}";
+                
+                BrainPlugin.NodeManager.Draw("debugterrain", _tileDebugLabel.color, room, tPos);
             }
             else 
             {
                 _tileDebugLabel.text = "";
+                BrainPlugin.NodeManager.Draw("debugterrain", _tileDebugLabel.color, room, new IntVector2(), frames: 1);
             }
         }
 

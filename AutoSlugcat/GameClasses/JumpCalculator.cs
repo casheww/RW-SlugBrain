@@ -6,10 +6,9 @@ namespace SlugBrain.GameClasses
 {
     public static partial class JumpCalculator
     {
-
-        public static JumpData[] GetJumpableTiles(Room room, IntVector2 start)
+        public static JumpPacket[] GetJumpableTiles(Room room, IntVector2 start)
         {
-            List<JumpData> tiles = new List<JumpData>();
+            List<JumpPacket> tiles = new List<JumpPacket>();
 
             /*
              * iterate through jump types
@@ -33,9 +32,9 @@ namespace SlugBrain.GameClasses
             return tiles.ToArray();
         }
 
-        private static List<JumpData> CastJumpPath(Room room, Vector2 pixelStart, JumpType jType, float velX, float velY)
+        private static List<JumpPacket> CastJumpPath(Room room, Vector2 pixelStart, JumpType jType, float velX, float velY)
         {
-            List<JumpData> path = new List<JumpData>();
+            List<JumpPacket> path = new List<JumpPacket>();
 
             Vector2 current = pixelStart;
             int frame = 0;
@@ -56,7 +55,7 @@ namespace SlugBrain.GameClasses
                 
                 if (CheckCanIMoveOntoTile(room, currentTile))
                 {
-                    path.Add(new JumpData(ConvertPixelsToTile(pixelStart), currentTile, jType.type));
+                    path.Add(new JumpPacket(ConvertPixelsToTile(pixelStart), currentTile, jType.type));
                 }
                 else pathBlocked = true;
 
@@ -65,15 +64,15 @@ namespace SlugBrain.GameClasses
             return path;
         }
         
-        private static List<JumpData> CastJumpPath(Room room, IntVector2 start, JumpType jType) =>
+        private static List<JumpPacket> CastJumpPath(Room room, IntVector2 start, JumpType jType) =>
             CastJumpPath(room, ConvertTileToPixels(start), jType, jType.xVelocity, 0);
 
         public static bool CheckJumpability(Room room, IntVector2 start, IntVector2 end,
             out MovementConnection.MovementType movementType)
         {
             foreach (JumpType jType in _validJumps)
-                foreach (JumpData jData in CastJumpPath(room, start, jType))
-                    if (jData.to == end)
+                foreach (JumpPacket jPacket in CastJumpPath(room, start, jType))
+                    if (jPacket.to == end)
                     {
                         movementType = jType.type;
                         return true;

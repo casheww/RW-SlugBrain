@@ -4,9 +4,9 @@ namespace SlugBrain.GameClasses
 {
     public static partial class JumpCalculator
     {
-        public readonly struct JumpData
+        public readonly struct JumpPacket
         {
-            public JumpData(IntVector2 from, IntVector2 to, MovementConnection.MovementType type)
+            public JumpPacket(IntVector2 from, IntVector2 to, MovementConnection.MovementType type)
             {
                 this.from = from;
                 this.to = to;
