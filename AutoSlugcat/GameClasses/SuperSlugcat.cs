@@ -24,7 +24,8 @@ namespace SlugBrain.GameClasses
         
         private static void PushPriorityText()
         {
-            BrainPlugin.TextManager.Write("SLUGBRAIN", "enabled", Color.red);
+            BrainPlugin.TextManager.Write("SLUGBRAIN", $"enabled : {BrainPlugin.Instance.Info.Metadata.Version}",
+                Color.red);
             BrainPlugin.TextManager.Write("pos   ", "");
             BrainPlugin.TextManager.Write("dest  ", "");
             BrainPlugin.TextManager.Write("mvmnt ", "");

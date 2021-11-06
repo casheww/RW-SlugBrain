@@ -11,8 +11,9 @@ namespace SlugBrain
     {
         private void OnEnable()
         {
+            Instance = this;
+                
             _Logger = Logger;
-
             if (!Directory.Exists(_logDir)) Directory.CreateDirectory(_logDir);
             File.WriteAllText(_logPath, "");
             Log($"SlugBrain started! casheww was ere \t{DateTime.Now}\n");
@@ -20,12 +21,13 @@ namespace SlugBrain
             InputSpoofer = new InputSpoofer();
             TextManager = new DebuggingHelpers.DebugTextManager();
             NodeManager = new DebuggingHelpers.DebugNodeManager();
-
+            
             Hooks.Enable();
         }
 
         private void OnDisable()
         {
+            Instance = default;
             Hooks.Disable();
         }
 
@@ -53,6 +55,7 @@ namespace SlugBrain
         }
 
 
+        public static BrainPlugin Instance { get; private set; }
         public static ManualLogSource _Logger { get; private set; }
         public static InputSpoofer InputSpoofer { get; private set; }
 
