@@ -157,8 +157,8 @@ namespace SlugBrain.GameClasses
             Vector2 dir = Custom.DirVec(movement.StartTile.ToVector2(), movement.DestTile.ToVector2());
             //Vector2 destDir = Custom.DirVec(movement.StartTile.ToVector2(), AI.Destination.Tile.ToVector2());
 
-            int x;
-            int y;
+            int x = 0;
+            int y = 0;
 
             Room.Tile startTile = room.GetTile(movement.StartTile);
             Room.Tile destTile = room.GetTile(movement.DestTile);
@@ -168,6 +168,25 @@ namespace SlugBrain.GameClasses
                 x = dir.x < -0.6f ? -1 : (dir.x > 0.6f ? 1 : 0);
                 y = 1;
                 BrainPlugin.Log("standing jump", warning: true);
+                BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
+                return;
+            }
+            
+            CheckBeamStatus(movement.StartTile, out bool vBeam, out bool hBeam);
+            bool onBeam = bodyMode == BodyModeIndex.ClimbingOnBeam;
+
+            if (onBeam && vBeam && Mathf.Abs(dir.x) > 0)
+            {
+                BrainPlugin.Log("jumping off vertical beam");
+                x = dir.x < -0.6f ? -1 : (dir.x > 0.6f ? 1 : 0);
+                y = 0;
+                BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
+                return;
+            }
+            
+            if (unstick)
+            {
+                BrainPlugin.Log("stuck?", warning: true);
                 BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
                 return;
             }
@@ -186,28 +205,12 @@ namespace SlugBrain.GameClasses
                 BrainPlugin.InputSpoofer.PushInputPackages(Walk(x, y));
                 return;
             }
-            
-            CheckBeamStatus(movement.StartTile, out bool vBeam, out bool hBeam);
-            bool onBeam = bodyMode == BodyModeIndex.ClimbingOnBeam;
+            else
+            {
+                x = Math.Sign(dir.x);
+                y = Math.Sign(dir.y);
+            }
 
-            if (onBeam && vBeam && Mathf.Abs(dir.x) > 0)
-            {
-                BrainPlugin.Log("jumping off vertical beam");
-                x = dir.x < -0.6f ? -1 : (dir.x > 0.6f ? 1 : 0);
-                y = 0;
-                BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
-                return;
-            }
-            
-            x = Math.Sign(dir.x);
-            y = Math.Sign(dir.y);
-            
-            if (unstick)
-            {
-                BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
-                return;
-            }
-            
             BrainPlugin.InputSpoofer.PushInputPackages(Walk(x, y));
         }
 
@@ -274,6 +277,14 @@ namespace SlugBrain.GameClasses
         private InputPackage[] Walk(int x, int y)
         {
             return new [] { new InputPackage { x = x, y = y} };
+        }
+
+        private InputPackage[] Crawl(int x, int y)
+        {
+            InputPackage[] walkPackages = Walk(x, y);
+            if (standing)
+                walkPackages[0].y = -1;
+            return walkPackages;
         }
         
         

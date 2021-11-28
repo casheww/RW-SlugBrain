@@ -13,7 +13,7 @@ namespace SlugBrain.GameClasses
             state = State.NotReady;
 
             _openNodes = new List<IntVector2>();
-            _nodeParentDictionary = new Dictionary<IntVector2, IntVector2>();
+            _possibleMovements = new List<MovementConnection>();
             _costToNode_G = new Dictionary<IntVector2, float>();
         }
 
@@ -82,8 +82,8 @@ namespace SlugBrain.GameClasses
                 bool onPath = false;
                 foreach (IntVector2 v in Custom.eightDirectionsAndZero)
                 {
-                    if (_nodeParentDictionary.ContainsKey(_creature.pos.Tile + v) ||
-                        _nodeParentDictionary.ContainsKey(_creature.pos.Tile + v * 2))
+                    if (TryGetMovementsToNode(_creature.pos.Tile + v, out _) ||
+                        TryGetMovementsToNode(_creature.pos.Tile + v * 2, out _))
                     {
                         onPath = true;
                         break;
@@ -108,7 +108,7 @@ namespace SlugBrain.GameClasses
             _costToNode_G.Clear();
             _costToNode_G.Add(_start, 0f);
             
-            _nodeParentDictionary.Clear();
+            _possibleMovements.Clear();
             
             BrainPlugin.Log($"setup for pathing from {_start} to {_goal}");
         }
@@ -123,6 +123,13 @@ namespace SlugBrain.GameClasses
             }
         }
 
+        /// <summary>
+        /// Does one pathfinding step:
+        ///     - gets the best node: <see cref="GetBestNode"/>
+        ///     - adds new neighbour nodes to the open set: <see cref="TryAddOpenNode"/>
+        ///     - if we are close to the goal,
+        ///         move along the state machine and construct the path: <see cref="ConstructPath"/>
+        /// </summary>
         private void DoPathfinding()
         {
             _bestNode = GetBestNode(out _);
@@ -140,7 +147,7 @@ namespace SlugBrain.GameClasses
                 
                 BrainPlugin.TextManager.Write("pathfinder pathing", "working", PathingColor);
 
-                AddOpenNode(MovementConnection.MovementType.Standard, neighbour, _bestNode);
+                TryAddOpenNode(Room, MovementConnection.MovementType.Standard, neighbour, _bestNode);
                 
                 // check if done
                 if (neighbour.FloatDist(_goal) < 2f)
@@ -156,23 +163,30 @@ namespace SlugBrain.GameClasses
             foreach (var jData in JumpCalculator.GetJumpableTiles(_creature.Room.realizedRoom, _bestNode))
             {
                 BrainPlugin.NodeManager.Draw($"j{jData.to}", Color.cyan, Room.realizedRoom, jData.to, 4f, 20);
-                AddOpenNode(jData.type, jData.to, _bestNode);
+                TryAddOpenNode(Room, jData.type, jData.to, _bestNode);
             }
         }
 
-        private void AddOpenNode(MovementConnection.MovementType moveType, IntVector2 node, IntVector2 parent)
+        private void TryAddOpenNode(AbstractRoom aRoom, MovementConnection.MovementType moveType, IntVector2 node, IntVector2 parent)
         {
             // don't add nodes that are already marked as open or have already been checked
             if (_openNodes.Contains(node) ||
-                _nodeParentDictionary.ContainsValue(node) ||
-                _nodeParentDictionary.ContainsKey(node))
+                TryGetMovementsFromNode(node, out _) ||
+                TryGetMovementsToNode(node, out _))
                 return;
 
+            WorldCoordinate from = new WorldCoordinate(aRoom.index, parent.x, parent.y, -1);
+            WorldCoordinate to = new WorldCoordinate(aRoom.index, node.x, node.y, -1);
+            int dist = (int)node.FloatDist(parent);
+
             _openNodes.Add(node);
-            _nodeParentDictionary.Add(node, parent);
+            _possibleMovements.Add(new MovementConnection(moveType, from, to, dist));
             _costToNode_G[node] = GetCostToNode_G(parent) + GetMovementCost(moveType, parent, node);
         }
         
+        /// <summary>
+        /// Checks if a tile is "legal", i.e. if slugcat can stand on it. 
+        /// </summary>
         private bool CheckIsTileLegal(Room room, IntVector2 tile)
         {
             if (!room.IsPositionInsideBoundries(tile)) return false;
@@ -190,6 +204,9 @@ namespace SlugBrain.GameClasses
             return false;
         }
 
+        /// <summary>
+        /// Calculates the cost of a movement. 
+        /// </summary>
         private float GetMovementCost(MovementConnection.MovementType moveType, IntVector2 from, IntVector2 to)
         {
             float dist = from.FloatDist(to);
@@ -198,7 +215,7 @@ namespace SlugBrain.GameClasses
             {
                 default:
                     if (moveType == EnumExt_SlugMovements.StandingJump)
-                        return 7f;
+                        return 1000f;
                     else if (dist < 2f)
                         return 1f;
                     break;
@@ -208,6 +225,9 @@ namespace SlugBrain.GameClasses
 
             return float.PositiveInfinity;  
         }
+
+        private float GetMovementCost(MovementConnection movement) =>
+            GetMovementCost(movement.type, movement.StartTile, movement.DestTile);
 
         /// <summary>
         /// Gets the best node from the open set, <see cref="_openNodes"/>.<br/>
@@ -259,33 +279,54 @@ namespace SlugBrain.GameClasses
             Mathf.Abs(_goal.x - node.x) + Mathf.Abs(_goal.y - node.y);
 
         /// <summary>
-        /// Walks backwards through <see cref="_nodeParentDictionary"/> to construct the path taken by the pathfinder. 
+        /// Walks backwards through <see cref="_possibleMovements"/> to construct the path taken by the pathfinder. 
         /// </summary>
-        private IntVector2[] ConstructPath(IntVector2 to, bool draw)
+        private MovementConnection[] ConstructPath(IntVector2 to, bool draw)
         {
-            List<IntVector2> path = new List<IntVector2>() { to };
-            IntVector2 current = to;
+            BrainPlugin.Log("CONSTRUCTING PATH");
+            
+            List<MovementConnection> path = new List<MovementConnection>();
+            MovementConnection current = new MovementConnection(0, new WorldCoordinate(-1, to.x, to.y, -1),
+                new WorldCoordinate(), 0);
 
-            while (_nodeParentDictionary.TryGetValue(current, out IntVector2 parent))
+            while (TryGetMovementsToNode(current.StartTile, out MovementConnection[] movesToNode))
             {
-                BrainPlugin.Log($"{current} has parent {parent}");
-                current = parent;
-                path.Add(current);
+                BrainPlugin.Log($"moves to {current.StartTile} : {movesToNode.Length}");
+                
+                MovementConnection best = current;
+                float bestCost = float.PositiveInfinity;
+                
+                foreach (MovementConnection m in movesToNode)
+                {
+                    float cost = GetOverallCost_F(m.StartTile);
+                    if (cost < bestCost)
+                    {
+                        best = m;
+                        bestCost = cost;
+                    }
+                }
+                
+                current = best;
+                path.Add(best);
             }
             
             path.Reverse();
 
             if (draw)
             {
-                foreach (IntVector2 n in path)
+                foreach (MovementConnection m in path)
                 {
-                    BrainPlugin.NodeManager.Draw(n.ToString(), PathingColor, Room.realizedRoom, n, frames: 120);
+                    BrainPlugin.NodeManager.Draw(m.DestTile.ToString(), PathingColor, Room.realizedRoom, m.DestTile, frames: 80);
                 }
             }
             
             return path.ToArray();
         }
         
+        /// <summary>
+        /// Helper for the AI.
+        /// The return tells the AI where the next node is and roughly how to get there. 
+        /// </summary>
         public MovementConnection FollowPath(WorldCoordinate start)
         {
             MovementConnection noMovement = new MovementConnection(MovementConnection.MovementType.Standard, start, start, 0);
@@ -298,7 +339,7 @@ namespace SlugBrain.GameClasses
 
                 for (int i = 0; i < FinalPath.Length; i++)
                 {
-                    float d = FinalPath[i].FloatDist(start.Tile);
+                    float d = FinalPath[i].DestTile.FloatDist(start.Tile);
                     if (d < shortestDist)
                     {
                         closestNodeIndex = i;
@@ -319,28 +360,38 @@ namespace SlugBrain.GameClasses
                 // ... else move to next node in path
                 if (closestNodeIndex + 1 < FinalPath.Length)
                 {
-                    IntVector2 currentTile = FinalPath[closestNodeIndex];
-                    IntVector2 nextTile = FinalPath[closestNodeIndex + 1];
+                    //MovementConnection.MovementType movementType;
+                    
+                    MovementConnection current = FinalPath[closestNodeIndex];
+                    MovementConnection next = FinalPath[closestNodeIndex + 1];
 
+                    return next;
+
+
+                    /*
                     // check if tiles are adjacent
-                    if (Mathf.Abs(nextTile.y - currentTile.y) + Mathf.Abs(nextTile.x - currentTile.x) <= 1)
+                    if (Mathf.Abs(next.y - current.y) + Mathf.Abs(next.x - current.x) <= 1)
                     {
-                        return new MovementConnection(MovementConnection.MovementType.Standard,
+                        // check if tile is a crawlspace
+                        movementType = AI.creature.Room.realizedRoom.aimap.getAItile(next).narrowSpace ?
+                            EnumExt_SlugMovements.Crawl : MovementConnection.MovementType.Standard;
+
+                        return new MovementConnection(movementType,
                             start,
-                            new WorldCoordinate(start.room, nextTile.x, nextTile.y, -1),
-                            (int)start.Tile.FloatDist(nextTile));
+                            new WorldCoordinate(start.room, next.x, next.y, -1),
+                            (int)start.Tile.FloatDist(next));
                     }
                     
                     // for non-adjacent tiles, check if jumpable instead
-                    bool jumpable = JumpCalculator.CheckJumpability(_creature.Room.realizedRoom, currentTile, nextTile,
-                        out MovementConnection.MovementType movementType);
+                    bool jumpable = JumpCalculator.CheckJumpability(_creature.Room.realizedRoom, current, next,
+                        out movementType);
 
                     if (jumpable)
                     {
                         return new MovementConnection(movementType, start,
-                            new WorldCoordinate(start.room, nextTile.x, nextTile.y, -1),
-                            (int)start.Tile.FloatDist(nextTile));
-                    }
+                            new WorldCoordinate(start.room, next.x, next.y, -1),
+                            (int)start.Tile.FloatDist(next));
+                    }*/
                 }
             }
             
@@ -348,6 +399,39 @@ namespace SlugBrain.GameClasses
                 PathingColor);
             BrainPlugin.Log($"no path from {start} to {_goal}", error: true);
             return noMovement;
+        }
+
+        private bool TryGetMovementsToNode(IntVector2 dest, out MovementConnection[] moves)
+        {
+            List<MovementConnection> moveList = new List<MovementConnection>();
+            BrainPlugin.Log($":::  {dest}   : possible: {_possibleMovements.Count}", warning: true);
+            
+            foreach (MovementConnection m in _possibleMovements)
+            {
+                if (m.DestTile == dest)
+                {
+                    moveList.Add(m);
+                    BrainPlugin.Log($"{dest} : {m.StartTile}", warning: true);
+                }
+            }
+            
+            moves = moveList.ToArray();
+            BrainPlugin.Log(moves.Length > 0, warning: true);
+            return moves.Length > 0;
+        }
+
+        private bool TryGetMovementsFromNode(IntVector2 start, out MovementConnection[] moves)
+        {
+            List<MovementConnection> moveList = new List<MovementConnection>();
+
+            foreach (MovementConnection m in _possibleMovements)
+            {
+                if (m.StartTile == start)
+                    moveList.Add(m);
+            }
+
+            moves = moveList.ToArray();
+            return moves.Length > 1;
         }
 
 
@@ -370,10 +454,10 @@ namespace SlugBrain.GameClasses
         private IntVector2 _bestNode;
 
         private readonly List<IntVector2> _openNodes;
-        private readonly Dictionary<IntVector2, IntVector2> _nodeParentDictionary;
+        private readonly List<MovementConnection> _possibleMovements;
         private readonly Dictionary<IntVector2, float> _costToNode_G;
         
-        public IntVector2[] FinalPath { get; private set; }
+        public MovementConnection[] FinalPath { get; private set; }
 
         private static Color PathingColor =>
             DebugColors.GetColor(DebugColors.Subject.Destination);
