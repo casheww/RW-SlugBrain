@@ -5,13 +5,9 @@ namespace SlugBrain
 {
     class InputSpoofer
     {
-        public InputSpoofer(int bufferSize = 128)
+        public InputSpoofer()
         {
-            capacity = bufferSize;
-            _buffer = new Player.InputPackage[capacity];
-            _front = -1;
-            _rear = -1;
-            Count = 0;
+            _packages = new List<Player.InputPackage>();
         }
 
         /// <summary>
@@ -23,12 +19,10 @@ namespace SlugBrain
         {
             Player.InputPackage newPackage;
 
-            if (!IsEmpty)
+            if (_packages.Count > 0)
             {
-                newPackage = CombineInputs(orig, _buffer[_front]);
-
-                Front++;        // move up the front of the buffer/queue
-                Count--;
+                newPackage = CombineInputs(orig, _packages[0]);
+                _packages.RemoveAt(0);
             }
             else newPackage = new Player.InputPackage();
 
@@ -44,29 +38,7 @@ namespace SlugBrain
         public void PushInputPackages(Player.InputPackage[] inputs)
         {
             for (int i = 0; i < inputs.Length; i++)
-            {
-                if (i >= capacity)
-                {
-                    BrainPlugin.Log("Input buffer capacity reached!", error: true);
-                    break;
-                }
-
-                if (IsEmpty)
-                {
-                    Front = 0;
-                    Rear = 1;
-                }
-
-                _buffer[Front + i] = CombineInputs(_buffer[Front + i], inputs[i]);
-
-                // check if we are adding new input frames
-                //  (rather than just merging with frames that already exist in the buffer)
-                if (i == Rear)
-                {
-                    Rear++;
-                    Count++;
-                }
-            }
+                _packages.Add(i < _packages.Count ? CombineInputs(_packages[i], inputs[i]) : inputs[i]);
         }
 
         private static Player.InputPackage CombineInputs(Player.InputPackage in0, Player.InputPackage in1)
@@ -83,27 +55,8 @@ namespace SlugBrain
         }
 
 
-        private readonly Player.InputPackage[] _buffer;
+        private readonly List<Player.InputPackage> _packages;
         public Player.InputPackage PreviousInput { get; private set; }
-
-        private int Front
-        {
-            get => _front;
-            set => _front = value < capacity ? value : capacity - value;
-        }
-        private int _front;
-
-        private int Rear
-        {
-            get => _rear;
-            set => _rear = value < capacity ? value : capacity - value;
-        }
-        private int _rear;
-        
-        public readonly int capacity;
-        public int Count { get; private set; }
-        public bool IsEmpty => Count == 0;
-        public bool IsFull => Count == capacity;
 
     }
 }

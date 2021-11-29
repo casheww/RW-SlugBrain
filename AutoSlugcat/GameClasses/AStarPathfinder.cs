@@ -296,8 +296,6 @@ namespace SlugBrain.GameClasses
                     BrainPlugin.Log("path construction has reached current creature location");
                     break;
                 }
-
-                BrainPlugin.Log($"moves to {current.StartTile} : {movesToNode.Length}");
                 
                 MovementConnection best = current;
                 float bestCost = float.PositiveInfinity;
@@ -345,7 +343,7 @@ namespace SlugBrain.GameClasses
 
                 for (int i = 0; i < FinalPath.Length; i++)
                 {
-                    float d = FinalPath[i].DestTile.FloatDist(start.Tile);
+                    float d = FinalPath[i].StartTile.FloatDist(start.Tile);
                     if (d < shortestDist)
                     {
                         closestNodeIndex = i;
@@ -365,40 +363,7 @@ namespace SlugBrain.GameClasses
 
                 // ... else move to next node in path
                 if (closestNodeIndex + 1 < FinalPath.Length)
-                {
-                    //MovementConnection.MovementType movementType;
-                    
-                    MovementConnection current = FinalPath[closestNodeIndex];
-                    MovementConnection next = FinalPath[closestNodeIndex + 1];
-
-                    return next;
-
-
-                    /*
-                    // check if tiles are adjacent
-                    if (Mathf.Abs(next.y - current.y) + Mathf.Abs(next.x - current.x) <= 1)
-                    {
-                        // check if tile is a crawlspace
-                        movementType = AI.creature.Room.realizedRoom.aimap.getAItile(next).narrowSpace ?
-                            EnumExt_SlugMovements.Crawl : MovementConnection.MovementType.Standard;
-
-                        return new MovementConnection(movementType,
-                            start,
-                            new WorldCoordinate(start.room, next.x, next.y, -1),
-                            (int)start.Tile.FloatDist(next));
-                    }
-                    
-                    // for non-adjacent tiles, check if jumpable instead
-                    bool jumpable = JumpCalculator.CheckJumpability(_creature.Room.realizedRoom, current, next,
-                        out movementType);
-
-                    if (jumpable)
-                    {
-                        return new MovementConnection(movementType, start,
-                            new WorldCoordinate(start.room, next.x, next.y, -1),
-                            (int)start.Tile.FloatDist(next));
-                    }*/
-                }
+                    return FinalPath[closestNodeIndex + 1];
             }
             
             BrainPlugin.TextManager.Write("pathfinder", $"no path from {start} to {_goal}. state?{state}",
@@ -410,19 +375,14 @@ namespace SlugBrain.GameClasses
         private bool TryGetMovementsToNode(IntVector2 dest, out MovementConnection[] moves)
         {
             List<MovementConnection> moveList = new List<MovementConnection>();
-            BrainPlugin.Log($":::  {dest}   : possible: {_possibleMovements.Count}", warning: true);
             
             foreach (MovementConnection m in _possibleMovements)
             {
                 if (m.DestTile == dest)
-                {
                     moveList.Add(m);
-                    BrainPlugin.Log($"{dest} : {m.StartTile}", warning: true);
-                }
             }
             
             moves = moveList.ToArray();
-            BrainPlugin.Log(moves.Length > 0, warning: true);
             return moves.Length > 0;
         }
 
@@ -437,7 +397,7 @@ namespace SlugBrain.GameClasses
             }
 
             moves = moveList.ToArray();
-            return moves.Length > 1;
+            return moves.Length > 0;
         }
 
 

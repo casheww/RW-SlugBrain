@@ -128,9 +128,7 @@ namespace SlugBrain.GameClasses
 
         private void FollowPath(WorldCoordinate preferedStart, WorldCoordinate backupStart, bool gettingUnstuck)
         {
-            MovementConnection movement;
-
-            movement = ai.aStarPathFinder.FollowPath(preferedStart);
+            MovementConnection movement = ai.aStarPathFinder.FollowPath(preferedStart);
 
             if (movement == null) movement = ai.aStarPathFinder.FollowPath(backupStart);
             
@@ -184,12 +182,13 @@ namespace SlugBrain.GameClasses
                 return;
             }
             
+            /*
             if (unstick)
             {
                 BrainPlugin.Log("stuck?", warning: true);
                 BrainPlugin.InputSpoofer.PushInputPackages(DoStandingJump(x, y));
                 return;
-            }
+            }*/
             
             if (destTile.Terrain == Room.Tile.TerrainType.Slope)
             {
@@ -205,12 +204,9 @@ namespace SlugBrain.GameClasses
                 BrainPlugin.InputSpoofer.PushInputPackages(Walk(x, y));
                 return;
             }
-            else
-            {
-                x = Math.Sign(dir.x);
-                y = Math.Sign(dir.y);
-            }
-
+            
+            x = Math.Sign(dir.x);
+            y = Math.Sign(dir.y);
             BrainPlugin.InputSpoofer.PushInputPackages(Walk(x, y));
         }
 
@@ -276,6 +272,7 @@ namespace SlugBrain.GameClasses
 
         private InputPackage[] Walk(int x, int y)
         {
+            BrainPlugin.Log($"walk     {x} {y}");
             return new [] { new InputPackage { x = x, y = y} };
         }
 
