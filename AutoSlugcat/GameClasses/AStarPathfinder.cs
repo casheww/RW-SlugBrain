@@ -291,6 +291,12 @@ namespace SlugBrain.GameClasses
 
             while (TryGetMovementsToNode(current.StartTile, out MovementConnection[] movesToNode))
             {
+                if (_creature.pos.Tile.FloatDist(current.StartTile) < 3f)
+                {
+                    BrainPlugin.Log("path construction has reached current creature location");
+                    break;
+                }
+
                 BrainPlugin.Log($"moves to {current.StartTile} : {movesToNode.Length}");
                 
                 MovementConnection best = current;
